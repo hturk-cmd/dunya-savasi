@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dünya Hâkimiyeti — Kesintisiz Harita</title>
+  <title>Dünya Hâkimiyeti — Anında Harita</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <style>
     :root { color-scheme: dark; --bg:#0b1020; --panel:#141c2e; --line:#2b3852; --text:#eef3ff; --muted:#9aa9c5; --accent:#4ade80; --danger:#f87171; }
@@ -100,7 +100,7 @@
           Fetih Mekanizması
           <span id="remainingMoves" class="moves-badge" style="display:none">Kalan Hak: 0</span>
         </div>
-        <div style="font-size:12px; color:var(--muted)">Zar at ve haritadan dilediğin bölgeye tıklayarak fethet!</div>
+        <div style="font-size:12px; color:var(--muted)">Zار at ve haritadan dilediğin bölgeye tıklayarak fethet!</div>
       </div>
       <div style="display:flex; align-items:center; gap:12px">
         <div id="diceResult" class="dice-val">-</div>
@@ -139,6 +139,7 @@
   $("zoomOutBtn").onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
   $("zoomResetBtn").onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
 
+  // HARİTAYI GİRİŞ KOŞULUNA BAĞLAMADAN HEMEN YÜKLE
   async function renderMap() {
     const projection = d3.geoMercator().scale(150).translate([480, 300]);
     const pathGenerator = d3.geoPath().projection(projection);
@@ -168,10 +169,6 @@
           updateMovesBadge();
           showStatus(`🎉 Bölge fethedildi! Kalan Hak: ${remainingMoves}`, "ok");
         });
-
-      await loadCountries();
-      await refreshPlayers();
-      subscribe();
     } catch (e) {
       $("map-loading").textContent = "Harita yüklenemedi: " + e.message;
     }
@@ -200,12 +197,23 @@
   }
 
   async function init() {
-    db = createClient(SUPABASE_URL, SUPABASE_KEY);
-    db.auth.onAuthStateChange((_ev, session) => { currentUser = session?.user ?? null; updateAuthUi(); });
-    const { data } = await db.auth.getSession();
-    currentUser = data.session?.user ?? null;
-    updateAuthUi();
-    await renderMap();
+    // 1. Haritayı doğrudan yükle (Giriş yapmayı beklemez)
+    renderMap();
+
+    try {
+      db = createClient(SUPABASE_URL, SUPABASE_KEY);
+      db.auth.onAuthStateChange((_ev, session) => { currentUser = session?.user ?? null; updateAuthUi(); });
+      const { data } = await db.auth.getSession();
+      currentUser = data.session?.user ?? null;
+      updateAuthUi();
+      await loadCountries();
+      if (currentUser) {
+        await refreshPlayers();
+        subscribe();
+      }
+    } catch (e) {
+      console.error("Supabase init hatası:", e);
+    }
   }
 
   function updateAuthUi() {
@@ -228,14 +236,26 @@
 
   $("login").addEventListener("click", async () => {
     const { error } = await db.auth.signInWithPassword({ email: $("email").value, password: $("password").value });
-    if (!error) await refreshPlayers();
-    else show("authStatus", error.message, "err");
+    if (!error) {
+      currentUser = (await db.auth.getSession()).data.session?.user ?? null;
+      updateAuthUi();
+      await refreshPlayers();
+      subscribe();
+    } else {
+      show("authStatus", error.message, "err");
+    }
   });
 
-  $("logout").addEventListener("click", async () => { await db.auth.signOut(); });
+  $("logout").addEventListener("click", async () => { 
+    await db.auth.signOut(); 
+    currentUser = null;
+    updateAuthUi();
+    $("players").textContent = "Oyuncu listesi yükleniyor…";
+  });
 
   $("saveProfile").addEventListener("click", async () => {
     try {
+      if (!currentUser) throw new Error("Önce giriş yapmalısın.");
       playerColor = $("color").value;
       const username = $("username").value.trim();
       const country = $("country").value;
