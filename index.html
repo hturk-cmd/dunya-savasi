@@ -34,7 +34,6 @@ background:#0a1425;border:1px solid var(--line);position:relative}
 #map{width:100%;height:100%;display:block;touch-action:none}
 .region{stroke:#7c91ac;stroke-width:.4;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .12s}
 .region:hover{stroke:white;stroke-width:1.5}
-.region.plane-target{stroke:#f59e0b;stroke-width:2.5}
 .map-tools{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .map-tools button{width:auto;min-width:42px;padding:8px 12px;flex:0 0 auto}
 #players{display:grid;gap:6px}
@@ -58,11 +57,6 @@ font-weight:800;color:#93c5fd;margin:10px 0;cursor:pointer;user-select:all}
 background:#0d1526;border-radius:8px;border:1px solid var(--line);cursor:pointer;user-select:none}
 .toggle-plane.active{background:#7c2d12;border-color:#f59e0b;color:#fef3c7}
 .toggle-plane input{margin:0;width:auto;padding:0}
-.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:10px;color:var(--muted)}
-.legend span{display:flex;align-items:center;gap:5px}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:3px}
-.war-actions{display:grid;gap:8px;margin-top:8px}
-@media(max-width:900px){.war-banner{font-size:13px;padding:8px 10px}}
 </style>
 </head>
 <body>
@@ -76,10 +70,8 @@ background:#0d1526;border-radius:8px;border:1px solid var(--line);cursor:pointer
 </header>
 
 <main>
-  <!-- SOL PANEL: duruma göre değişir -->
   <aside id="sidePanel"></aside>
 
-  <!-- SAĞ PANEL: harita -->
   <section class="panel">
     <div class="row" style="align-items:center;margin-bottom:10px">
       <div>
@@ -275,8 +267,6 @@ function subscribeRealtime(){
       filter:`game_id=eq.${gameState.game.id}` }, refresh)
     .on("postgres_changes", { event:"*", schema:"public", table:"wars",
       filter:`game_id=eq.${gameState.game.id}` }, refresh)
-    .on("postgres_changes", { event:"*", schema:"public", table:"plane_routes",
-      filter:`game_id=eq.${gameState.game.id}` }, refresh)
     .subscribe();
 }
 async function refresh(){
@@ -285,7 +275,7 @@ async function refresh(){
   repaintMap();
 }
 
-// ---------- KENAR PANEL (LOBI veya OYUN) ----------
+// ---------- KENAR PANEL ----------
 function renderSidePanel(){
   if (!gameState) return renderMenu();
   const g = gameState.game;
@@ -304,8 +294,7 @@ function playerListHTML(){
     return `<div class="player ${isTurn?'turn':''} ${defeated?'defeated':''}">
       <span class="swatch" style="background:${p.color}"></span>
       <div style="flex:1;min-width:0">
-        <div><strong>${escapeHTML(p.username||'Oyuncu')}</strong>
-        ${mine?'<small>(sen)</small>':''}</div>
+        <div><strong>${escapeHTML(p.username||'Oyuncu')}</strong> ${mine?'<small>(sen)</small>':''}</div>
         <small>${regionCount} bölge</small>
       </div>
       ${isTurn?'<span class="badge playing">Sıra</span>':''}
@@ -316,10 +305,8 @@ function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','
 
 function renderLobby(){
   const g = gameState.game;
-  const myTurnDice = gameState.dice.find(d =>
-    d.user_id === session.user.id && d.purpose === "turn_order");
-  const allRolled = gameState.players.every(p =>
-    gameState.dice.some(d => d.user_id === p.user_id && d.purpose === "turn_order"));
+  const myTurnDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "turn_order");
+  const allRolled = gameState.players.every(p => gameState.dice.some(d => d.user_id === p.user_id && d.purpose === "turn_order"));
   const isCreator = g.creator_id === session.user.id;
 
   $("sidePanel").innerHTML = `
@@ -332,10 +319,7 @@ function renderLobby(){
       <h2>Sıra Zarı</h2>
       <div id="dice">${myTurnDice ? "🎲 "+myTurnDice.value : "—"}</div>
       <button id="rollTurnBtn" ${myTurnDice?'disabled':''}>Zar at (sıra için)</button>
-      <small>En büyük atan ilk oynar.</small>
-      ${isCreator ? `<button id="startBtn" style="margin-top:10px"
-        ${allRolled?'':'disabled'} class="success">
-        Oyunu Başlat</button>` : `<small>Kurucu bekleniyor…</small>`}
+      ${isCreator ? `<button id="startBtn" style="margin-top:10px" ${allRolled?'':'disabled'} class="success">Oyunu Başlat</button>` : `<small>Kurucu bekleniyor…</small>`}
     </section>
     <section class="panel">
       <h2>Oyuncular</h2>
@@ -344,10 +328,8 @@ function renderLobby(){
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
   document.getElementById("copyCode").onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(gameState.game.code);
-      msg("Kod kopyalandı: " + gameState.game.code);
-    } catch { msg("Kod: " + gameState.game.code); }
+    try { await navigator.clipboard.writeText(gameState.game.code); msg("Kod kopyalandı: " + gameState.game.code); } 
+    catch { msg("Kod: " + gameState.game.code); }
   };
   $("rollTurnBtn").onclick = () => withStatus(async () => {
     const { error } = await db.rpc("roll_turn_dice", { p_game_id: gameState.game.id });
@@ -368,8 +350,7 @@ function renderPlaying(){
   const g = gameState.game;
   const myTurn = iAmTurn();
   const diceLeft = myDiceLeft();
-  const myDice = gameState.dice.find(d =>
-    d.user_id === session.user.id && d.purpose === "move" && d.used < d.value);
+  const myDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "move" && d.used < d.value);
 
   $("sidePanel").innerHTML = `
     <section class="panel">
@@ -390,14 +371,9 @@ function renderPlaying(){
       <h2>Savaş İlan Et</h2>
       <select id="targetPlayer">
         <option value="">— rakip seç —</option>
-        ${gameState.players
-          .filter(p => p.user_id !== session.user.id)
-          .map(p => `<option value="${p.user_id}">${escapeHTML(p.username||'Oyuncu')}</option>`)
-          .join("")}
+        ${gameState.players.filter(p => p.user_id !== session.user.id).map(p => `<option value="${p.user_id}">${escapeHTML(p.username||'Oyuncu')}</option>`).join("")}
       </select>
-      <button id="declareWarBtn" class="danger" ${!myTurn || gameState.war ? 'disabled':''}>
-        ⚔️ Savaş İlan Et
-      </button>
+      <button id="declareWarBtn" class="danger" ${!myTurn || gameState.war ? 'disabled':''}>⚔️ Savaş İlan Et</button>
     </section>
     <section class="panel">
       <h2>Oyuncular</h2>
@@ -422,9 +398,7 @@ function renderPlaying(){
     const target = $("targetPlayer").value;
     if (!target) throw new Error("Rakip seç");
     if (!confirm("Savaş ilan edilsin mi? Tüm oyun bu savaşa odaklanır.")) return;
-    const { error } = await db.rpc("declare_war", {
-      p_game_id: g.id, p_defender_id: target
-    });
+    const { error } = await db.rpc("declare_war", { p_game_id: g.id, p_defender_id: target });
     if (error) throw error;
     await refresh();
   });
@@ -439,8 +413,7 @@ function renderWar(){
   const attacker = findPlayer(w.attacker_id);
   const defender = findPlayer(w.defender_id);
   const diceLeft = myDiceLeft();
-  const myDice = gameState.dice.find(d =>
-    d.user_id === session.user.id && d.purpose === "war" && d.used < d.value);
+  const myDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "war" && d.used < d.value);
   const iAmAttacker = w.attacker_id === session.user.id;
   const iWantEnd = iAmAttacker ? w.attacker_wants_end : w.defender_wants_end;
 
@@ -453,20 +426,11 @@ function renderWar(){
       <h2>Savaş Hamlesi</h2>
       <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
       <div class="muted">${myTurn ? `Kalan füze: ${diceLeft}` : "Sıra sende değil"}</div>
-      <button id="rollWarBtn" ${!myTurn || diceLeft>0 ? 'disabled':''}>
-        Savaş Zarı At
-      </button>
-      <small>Zar = füze sayısı. Düşman şehrine tıklayarak füze at.</small>
+      <button id="rollWarBtn" ${!myTurn || diceLeft>0 ? 'disabled':''}>Savaş Zarı At</button>
     </section>
     <section class="panel">
       <h2>Savaşı Bitir</h2>
-      <small>İki taraf da basarsa savaş biter ve normal oyuna dönülür.</small>
-      <button id="endWarBtn" class="secondary" ${iWantEnd?'disabled':''} style="margin-top:8px">
-        ${iWantEnd ? 'Onay verildi, karşı taraf bekleniyor…' : 'Savaşı Bitir'}
-      </button>
-      <div class="muted" style="margin-top:6px">
-        Saldıran: ${w.attacker_wants_end?'✅':'⏳'} &nbsp; Savunan: ${w.defender_wants_end?'✅':'⏳'}
-      </div>
+      <button id="endWarBtn" class="secondary" ${iWantEnd?'disabled':''}>${iWantEnd ? 'Onay verildi, bekleniyor…' : 'Savaşı Bitir'}</button>
     </section>
     <section class="panel">
       <h2>Oyuncular</h2>
@@ -515,11 +479,11 @@ async function loadMap(){
     features = data.features.filter(f => f.geometry);
     $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " bölge";
 
-    // 1. ADIM: Haritayı hemen çiz, donmayı önle.
+    // Önce haritayı çiz
     drawMap(data);
-    $("mapStatus").textContent = "Harita çizildi, sınır komşuları hesaplanıyor...";
+    $("mapStatus").textContent = "Harita çizildi, komşuluklar hesaplanıyor...";
 
-    // 2. ADIM: Komşulukları arka planda (gecikmeli) hesapla, böylece UI donmaz.
+    // Sonra arka planda komşulukları hesapla
     setTimeout(() => {
       buildNeighbors();
       $("mapStatus").textContent = "Harita hazır (Tüm sistemler aktif)";
@@ -536,11 +500,10 @@ function regionId(f){
   return String(p.region_id || p.shapeID || p.shapeISO || "");
 }
 
-// Performansı artırılmış hızlı komşuluk hesaplayıcı
+// Hızlı komşuluk hesaplayıcı
 function buildNeighbors(){
   neighbors.clear();
   const vertexMap = new Map();
-
   const addCoords = (coords, rid) => {
     if (typeof coords[0] === 'number') {
       const key = coords[0].toFixed(2) + "," + coords[1].toFixed(2);
@@ -552,14 +515,12 @@ function buildNeighbors(){
     }
   };
 
-  // 1. Tüm köşe noktalarını topla
   for (const f of features) {
     const rid = regionId(f);
     if (!rid) continue;
     addCoords(f.geometry.coordinates, rid);
   }
 
-  // 2. Aynı köşeyi paylaşanları komşu ilan et
   for (const rids of vertexMap.values()) {
     if (rids.size > 1) {
       const arr = Array.from(rids);
@@ -579,12 +540,12 @@ function buildNeighbors(){
 function drawMap(data){
   const svg = d3.select("#map");
   svg.selectAll("*").remove();
-  // Antarktika çok büyük olduğu için haritayı düzgün ortalayamıyor, 
-  // bu yüzden "fitExtent" yerine doğrudan "fitSize" kullanıyoruz.
   const projection = d3.geoNaturalEarth1().fitSize([960, 560], data);
   const path = d3.geoPath(projection);
 
   mapLayer = svg.append("g");
+  
+  // Bölgeleri çiz
   mapLayer.selectAll("path")
     .data(features)
     .join("path")
@@ -595,6 +556,34 @@ function drawMap(data){
     .on("click", (ev, f) => onRegionClick(f))
     .append("title")
     .text(f => (f.properties?.region_name || f.properties?.shapeName || f.properties?.name || "Bölge"));
+
+  // Ülke kodlarını (isimlerini) küçük şekilde yazdır
+  const countryGroups = d3.group(features, f => f.properties?.country_code || "");
+  const labelLayer = mapLayer.append("g").attr("class", "labels");
+  
+  for (const [code, feats] of countryGroups) {
+    if (!code) continue;
+    let sumX = 0, sumY = 0, validCount = 0;
+    feats.forEach(f => {
+      const c = path.centroid(f);
+      if (!isNaN(c[0]) && !isNaN(c[1])) {
+        sumX += c[0];
+        sumY += c[1];
+        validCount++;
+      }
+    });
+    if (validCount === 0) continue;
+    
+    labelLayer.append("text")
+      .attr("x", sumX / validCount)
+      .attr("y", sumY / validCount)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "7px") // Çok küçük
+      .attr("fill", "#64748b") // Silik gri/mavi
+      .attr("pointer-events", "none") // Tıklamayı engellemez
+      .attr("opacity", 0.8)
+      .text(code);
+  }
 
   zoomBehavior = d3.zoom().scaleExtent([1, 14])
     .on("zoom", e => mapLayer.attr("transform", e.transform));
@@ -609,9 +598,7 @@ function regionColor(f){
 
 function repaintMap(){
   if (!mapLayer) return;
-  mapLayer.selectAll("path.region")
-    .attr("fill", f => regionColor(f))
-    .classed("plane-target", false);
+  mapLayer.selectAll("path.region").attr("fill", f => regionColor(f));
 }
 
 function updateMapHints(){
@@ -643,15 +630,12 @@ async function onRegionClick(f){
       return;
     }
     if (myDiceLeft() <= 0) { msg("Önce savaş zarı at."); return; }
-    if (!confirm("Füze atılsın mı? Bu bölge sana geçer.")) return;
-    msg("Füze uçuyor…");
+    if (!confirm("Füze atılsın mı?")) return;
     try {
-      const { data, error } = await db.rpc("fire_missile", {
-        p_war_id: w.id, p_target_region_id: rid
-      });
+      const { data, error } = await db.rpc("fire_missile", { p_war_id: w.id, p_target_region_id: rid });
       if (error) throw error;
-      if (data.war_over) msg("💥 Savaş bitti! Kazanan: sen");
-      else msg("💥 Hedef alındı. Düşman kalanı: " + data.defender_remaining);
+      if (data.war_over) msg("💥 Savaş bitti!");
+      else msg("💥 Hedef alındı.");
       await refresh();
     } catch (e) { msg("Hata: " + e.message); }
     return;
@@ -674,15 +658,13 @@ async function onRegionClick(f){
     }
   }
 
-  msg(planeMode ? "✈️ Uçak yolda…" : "Bölge alınıyor…");
   try {
     const adjArr = [...(neighbors.get(rid) || [])];
     const { data, error } = await db.rpc("claim_region_v2", {
-      p_game_id: gid, p_region_id: rid,
-      p_plane: planeMode, p_adjacent_ids: adjArr
+      p_game_id: gid, p_region_id: rid, p_plane: planeMode, p_adjacent_ids: adjArr
     });
     if (error) throw error;
-    msg("✅ Alındı. Kalan: " + data.remaining);
+    msg("✅ Alındı. Kalan hamle: " + data.remaining);
     await refresh();
   } catch (e) {
     msg("Hata: " + e.message);
