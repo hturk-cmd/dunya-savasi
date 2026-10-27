@@ -165,7 +165,6 @@ function startHeartbeat(gameId){
   heartbeatTimer = setInterval(beat, 15000);
   document.addEventListener("visibilitychange", onVisChange);
 
-  // Online durumları güncellemek için sayfayı periyodik yenile
   pollTimer = setInterval(() => {
     if (gameState && (gameState.game.status === 'lobby' || gameState.war)) {
       refresh();
@@ -205,7 +204,6 @@ async function logout(){
 }
 async function afterLogin(){
   $("userState").textContent = "Giriş yapıldı";
-  // Direkt menüye git, oyunu kullanıcı seçsin
   renderMenu();
 }
 
@@ -302,7 +300,6 @@ async function renderMenu(){
 }
 
 async function loadMenuLists(){
-  // Mevcut oyunlar
   try {
     const { data: myGames, error: myErr } = await db.rpc("find_my_games");
     const box = $("myGames");
@@ -325,12 +322,10 @@ async function loadMenuLists(){
     }
   } catch(e) { $("myGames").innerHTML = '<small class="muted">Oyunlar yüklenemedi.</small>'; }
 
-  // Public oyunlar
   try {
     const { data: pubGames, error: pubErr } = await db.rpc("list_games");
     const box = $("serverList");
     if (pubErr) throw pubErr;
-    // Kendi oyunlarını listeden çıkar
     const myGameIds = new Set((await db.rpc("find_my_games")).data?.map(g => g.id) || []);
     const filtered = (pubGames || []).filter(g => !myGameIds.has(g.id));
 
@@ -570,19 +565,40 @@ function renderWar(){
   const defender = findPlayer(w.defender_id);
   const iAmAttacker = w.attacker_id === session.user.id;
   const iWantEnd = iAmAttacker ? w.attacker_wants_end : w.defender_wants_end;
-  const onlineOk = allOnline();
+  
+  // Savaşta sadece savaşanların online olması yeterli
+  const onlineOk = isOnline(attacker) && isOnline(defender);
 
   if (!w.order_set) {
     const myOrder = (gameState.war_order_dice || []).find(d => d.user_id === session.user.id);
+    const attackerOrder = (gameState.war_order_dice || []).find(d => d.user_id === w.attacker_id);
+    const defenderOrder = (gameState.war_order_dice || []).find(d => d.user_id === w.defender_id);
+    
+    let orderStatus = "<p class='muted'>Her iki tarafın zar atması bekleniyor...</p>";
+    if (attackerOrder || defenderOrder) {
+      orderStatus = `
+        <div style="background:#0d1526; padding:10px; border-radius:8px; margin-bottom:10px; font-size:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>Saldıran (${escapeHTML(attacker?.username||'?')}):</span>
+            <strong>${attackerOrder ? "🎲 "+attackerOrder.value : 'Bekleniyor...'}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Savunan (${escapeHTML(defender?.username||'?')}):</span>
+            <strong>${defenderOrder ? "🎲 "+defenderOrder.value : 'Bekleniyor...'}</strong>
+          </div>
+        </div>
+      `;
+    }
+
     $("sidePanel").innerHTML = `
-      ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil.</div>` : ''}
+      ${!onlineOk ? `<div class="warn-banner">⚠️ Savaşan oyunculardan biri çevrimdışı.</div>` : ''}
       <div class="war-banner">
         <span>⚔️ SAVAŞ: ${escapeHTML(attacker?.username||'?')} ↔ ${escapeHTML(defender?.username||'?')}</span>
         <span class="badge war">sıra belirleme</span>
       </div>
       <section class="panel">
         <h2>Sıra Zarı</h2>
-        <p class="muted">Her iki taraf da zar atar. En yüksek atan önce saldırır.</p>
+        ${orderStatus}
         <div id="dice">${myOrder ? "🎲 "+myOrder.value : "—"}</div>
         <button id="rollWarOrderBtn" class="danger" ${myOrder || !onlineOk ? 'disabled':''}>${myOrder ? 'Zar atıldı, rakip bekleniyor…' : 'Zar At'}</button>
       </section>
@@ -610,15 +626,18 @@ function renderWar(){
   );
 
   $("sidePanel").innerHTML = `
-    ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil.</div>` : ''}
+    ${!onlineOk ? `<div class="warn-banner">⚠️ Savaşan oyunculardan biri çevrimdışı.</div>` : ''}
     <div class="war-banner">
       <span>⚔️ SAVAŞ: ${escapeHTML(attacker?.username||'?')} ↔ ${escapeHTML(defender?.username||'?')}</span>
       <span class="badge war">aktif</span>
     </div>
     <section class="panel">
       <h2>Savaş Hamlesi</h2>
+      <div style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:10px; color:${myTurn ? 'var(--gold)' : 'var(--muted)'}">
+        ${myTurn ? "Sıra Sende!" : "Sıra: " + escapeHTML(findPlayer(w.current_turn_user_id)?.username)}
+      </div>
       <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
-      <div class="muted">${myTurn ? (diceLeft>0 ? `Kalan füze: ${diceLeft}` : 'Zar at') : "Sıra sende değil"}</div>
+      <div class="muted">${myTurn ? (diceLeft>0 ? `Kalan füze hakkı: ${diceLeft}` : 'Zar atmalısın') : "Rakip bekleniyor..."}</div>
       <button id="rollWarBtn" class="danger" ${!myTurn || diceLeft>0 || !onlineOk ? 'disabled':''}>Savaş Zarı At</button>
     </section>
     <section class="panel">
@@ -649,7 +668,7 @@ function renderEnded(){
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Oyun Bitti <span class="badge ended">bitti</span></h2>
-      <div style="font-size:22px;text-align:center;margin:16px 0">🏆 <strong>${escapeHTML(winner?.username||'Kazanan')}</strong></div>
+      <div style="font-size:22px;text-align:center;margin:16px 0">🏆 <strong>${escapeHTML(winner?.username||'Kazan')}</strong></div>
       <button onclick="location.reload()">Yeni oyun kur</button>
     </section>`;
   updateMapHints();
@@ -660,25 +679,20 @@ async function loadMap(){
   $("mapStatus").textContent = "Dünya haritası yükleniyor…";
   const sources = [
     "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json",
-    "https://unpkg.com/world-atlas@2/countries-110m.json",
-    "https://cdn.jsdelivr.net/gh/topojson/world-atlas@2.0.2/countries-110m.json"
+    "https://unpkg.com/world-atlas@2/countries-110m.json"
   ];
   let world = null, lastErr = null;
   for (const url of sources) {
     try {
-      console.log("Harita kaynağı deneniyor:", url);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       world = await res.json();
       if (!world?.objects?.countries) throw new Error("Format hatası");
       break;
-    } catch(e) {
-      console.warn("Başarısız:", url, e.message);
-      lastErr = e;
-    }
+    } catch(e) { lastErr = e; }
   }
   if (!world) {
-    $("mapStatus").textContent = "❌ Harita yüklenemedi (CDN engeli)";
+    $("mapStatus").textContent = "❌ Harita yüklenemedi";
     return;
   }
   try {
@@ -740,7 +754,12 @@ function drawMap(world){
     .on("click", (ev, f) => onRegionClick(f))
     .append("title").text(f => f.properties.region_name || "Ülke");
 
-  zoomBehavior = d3.zoom().scaleExtent([1, 14]).on("zoom", e => mapLayer.attr("transform", e.transform));
+  zoomBehavior = d3.zoom().scaleExtent([1, 14]).on("zoom", e => {
+    mapLayer.attr("transform", e.transform);
+    mapLayer.selectAll("text.siege-label")
+      .attr("font-size", (6 / e.transform.k) + "px")
+      .attr("stroke-width", (1.2 / e.transform.k));
+  });
   svg.call(zoomBehavior);
   repaintSiegeLabels();
 }
@@ -769,6 +788,7 @@ function repaintMap(){
 function repaintSiegeLabels(){
   if (!mapLayer || !mapPath) return;
   mapLayer.selectAll("text.siege-label").remove();
+  const currentK = d3.zoomTransform(d3.select("#map").node()).k || 1;
   for (const [rid, siege] of sieges) {
     const f = features.find(x => regionId(x) === rid);
     if (!f) continue;
@@ -780,11 +800,13 @@ function repaintSiegeLabels(){
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
       .attr("fill", "#fff")
-      .attr("font-size", 11)
+      .attr("font-size", (6 / currentK) + "px") // 6 yapıldı (daha küçük)
       .attr("paint-order", "stroke")
       .attr("stroke", "#000")
-      .attr("stroke-width", 3)
+      .attr("stroke-width", (1.2 / currentK))
       .attr("stroke-linejoin", "round")
+      .attr("font-family", "system-ui, sans-serif")
+      .attr("font-weight", "bold")
       .text(`${siege.points}/6`);
   }
 }
@@ -808,7 +830,9 @@ async function onRegionClick(f){
     if (!w.order_set) { msg("Önce savaş sıra zarını at."); return; }
     const own = ownership.get(rid);
     const enemyId = session.user.id === w.attacker_id ? w.defender_id : w.attacker_id;
-    if (!own || own.owner_user_id !== enemyId) { msg("Sadece düşman bölgelerine saldırabilirsin."); return; }
+    
+    if (!own) { msg("Hedef bölgenin sahibi yok."); return; }
+    if (own.owner_user_id !== enemyId) { msg("Sadece düşman bölgelerine saldırabilirsin."); return; }
     if (myDiceLeft() <= 0) { msg("Önce savaş zarı at."); return; }
 
     try {
