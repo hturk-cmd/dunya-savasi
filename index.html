@@ -540,7 +540,12 @@ function buildNeighbors(){
 function drawMap(data){
   const svg = d3.select("#map");
   svg.selectAll("*").remove();
-  const projection = d3.geoNaturalEarth1().fitSize([960, 560], data);
+  
+  // KRİTİK DÜZELTME: Sadece veriye değil, tüm Dünya (Sphere) boyutuna göre ölçekle!
+  // Böylece Maldivler veya Antarktika yüzünden harita bozulmaz.
+  const projection = d3.geoMercator()
+    .fitExtent([[10, 10], [950, 550]], { type: "Sphere" }); 
+    
   const path = d3.geoPath(projection);
 
   mapLayer = svg.append("g");
