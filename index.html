@@ -2,315 +2,574 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Dünya Hâkimiyeti</title>
-
 <style>
-:root {
-  color-scheme: dark;
-  --bg: #0b1020;
-  --panel: #151d30;
-  --line: #2b3851;
-  --text: #edf3ff;
-  --muted: #9baac2;
-  --accent: #60a5fa;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px system-ui, sans-serif;
-}
-header {
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--line);
-  background: #10182a;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-h1 { margin: 0; font-size: 23px; }
-h2 { font-size: 16px; margin: 0 0 14px; }
-small, .muted { color: var(--muted); }
-main {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px;
-}
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 16px;
-  min-width: 0;
-}
-input, select, button {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: #0d1526;
-  color: var(--text);
-  margin: 5px 0;
-  font: inherit;
-}
-button {
-  cursor: pointer;
-  background: #2563eb;
-  border-color: #3b82f6;
-  font-weight: 650;
-}
-button:hover { filter: brightness(1.15); }
-button.secondary { background: #27344b; border-color: #3b4962; }
-button:disabled { opacity: .5; cursor: not-allowed; }
-.row { display: flex; gap: 8px; }
-.row > * { min-width: 0; flex: 1; }
-#status {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-  color: #93c5fd;
-  margin-top: 10px;
-}
-#mapbox {
-  height: min(72vh, 720px);
-  min-height: 400px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: #0a1425;
-  border: 1px solid var(--line);
-  position: relative;
-}
-#map { width: 100%; height: 100%; display: block; }
-.region {
-  stroke: #7c91ac;
-  stroke-width: .45;
-  vector-effect: non-scaling-stroke;
-  cursor: pointer;
-  transition: fill .12s;
-}
-.region:hover { stroke: white; stroke-width: 1.5; }
-.map-tools {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.map-tools button { width: auto; min-width: 44px; }
-#players { display: grid; gap: 8px; }
-.player {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 9px;
-  background: #0d1526;
-  border-radius: 8px;
-}
-.swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  flex: 0 0 14px;
-}
-#dice {
-  font-size: 36px;
-  font-weight: 800;
-  text-align: center;
-  margin: 10px 0;
-}
-@media(max-width: 850px) {
-  main { grid-template-columns: 1fr; }
-  #mapbox { height: 58vh; min-height: 330px; }
-}
+:root{color-scheme:dark;--bg:#0b1020;--panel:#151d30;--line:#2b3851;--text:#edf3ff;
+--muted:#9baac2;--accent:#60a5fa;--red:#ef4444;--green:#22c55e;--gold:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+header{padding:14px 18px;border-bottom:1px solid var(--line);background:#10182a;
+display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+h1{margin:0;font-size:20px}
+h2{font-size:15px;margin:0 0 12px}
+small,.muted{color:var(--muted)}
+main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;padding:14px}
+@media(max-width:900px){main{grid-template-columns:1fr;padding:8px;gap:8px}header{padding:10px 12px}h1{font-size:16px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;min-width:0}
+input,select,button{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);
+background:#0d1526;color:var(--text);margin:5px 0;font:inherit}
+button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:650}
+button:hover{filter:brightness(1.15)}
+button.secondary{background:#27344b;border-color:#3b4962}
+button.danger{background:#7f1d1d;border-color:#ef4444}
+button.success{background:#166534;border-color:#22c55e}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px}
+.row>*{min-width:0;flex:1}
+#status{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:#93c5fd;margin-top:10px}
+#mapbox{height:min(70vh,720px);min-height:380px;overflow:hidden;border-radius:12px;
+background:#0a1425;border:1px solid var(--line);position:relative}
+@media(max-width:900px){#mapbox{height:56vh;min-height:300px}}
+#map{width:100%;height:100%;display:block;touch-action:none}
+.region{stroke:#7c91ac;stroke-width:.4;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .12s}
+.region:hover{stroke:white;stroke-width:1.5}
+.region.plane-target{stroke:#f59e0b;stroke-width:2.5}
+.map-tools{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.map-tools button{width:auto;min-width:42px;padding:8px 12px;flex:0 0 auto}
+#players{display:grid;gap:6px}
+.player{display:flex;gap:10px;align-items:center;padding:8px;background:#0d1526;border-radius:8px}
+.player.turn{border:1px solid var(--gold);background:#1a2236}
+.player.defeated{opacity:.4;text-decoration:line-through}
+.swatch{width:16px;height:16px;border-radius:4px;flex:0 0 16px;border:1px solid rgba(255,255,255,.3)}
+#dice{font-size:34px;font-weight:800;text-align:center;margin:6px 0}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;
+font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.badge.lobby{background:#1e3a8a}.badge.playing{background:#166534}
+.badge.war{background:#7f1d1d}.badge.ended{background:#334155}
+.war-banner{background:#7f1d1d;color:#fff;padding:10px 14px;border-radius:10px;
+margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;font-weight:600}
+.code-box{background:#0d1526;border:1px dashed #3b82f6;padding:14px;border-radius:10px;
+text-align:center;font-family:ui-monospace,monospace;font-size:24px;letter-spacing:6px;
+font-weight:800;color:#93c5fd;margin:10px 0;cursor:pointer;user-select:all}
+.code-box small{display:block;font-size:11px;letter-spacing:normal;color:var(--muted);margin-top:4px;font-weight:400}
+.hidden{display:none!important}
+.toggle-plane{display:flex;gap:8px;margin:10px 0;align-items:center;padding:8px 12px;
+background:#0d1526;border-radius:8px;border:1px solid var(--line);cursor:pointer;user-select:none}
+.toggle-plane.active{background:#7c2d12;border-color:#f59e0b;color:#fef3c7}
+.toggle-plane input{margin:0;width:auto;padding:0}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:10px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px}
+.war-actions{display:grid;gap:8px;margin-top:8px}
+@media(max-width:900px){.war-banner{font-size:13px;padding:8px 10px}}
 </style>
 </head>
-
 <body>
+
 <header>
   <div>
     <h1>🌍 Dünya Hâkimiyeti</h1>
-    <small>Kur. Genişle. Hâkimiyet kur.</small>
+    <small id="subTitle">Kur. Davet et. Hâkimiyet kur.</small>
   </div>
-  <div id="userState" class="muted">Bağlantı kuruluyor...</div>
+  <div id="userState" class="muted">Bağlantı kuruluyor…</div>
 </header>
 
 <main>
-<aside>
+  <!-- SOL PANEL: duruma göre değişir -->
+  <aside id="sidePanel"></aside>
+
+  <!-- SAĞ PANEL: harita -->
   <section class="panel">
-    <h2>Hesap</h2>
-    <input id="email" type="email" placeholder="E-posta">
-    <input id="password" type="password" placeholder="Şifre">
-    <div class="row">
-      <button id="signup">Kayıt ol</button>
-      <button id="login" class="secondary">Giriş yap</button>
+    <div class="row" style="align-items:center;margin-bottom:10px">
+      <div>
+        <h2 style="margin-bottom:3px">Dünya haritası</h2>
+        <small id="mapStatus">Harita yükleniyor…</small>
+      </div>
+      <div style="text-align:right">
+        <small id="regionCount">0 bölge</small>
+      </div>
     </div>
-    <button id="logout" class="secondary">Çıkış yap</button>
-  </section>
-
-  <section class="panel">
-    <h2>Oyuncu ve başlangıç ülkesi</h2>
-    <input id="username" maxlength="24" placeholder="Oyuncu adı">
-    <label for="color" class="muted">Oyuncu rengi</label>
-    <input id="color" type="color" value="#3b82f6">
-    <label for="country" class="muted">Başlangıç ülkesi</label>
-    <select id="country">
-      <option value="">Ülkeler yükleniyor...</option>
-    </select>
-    <button id="join">Seçimi onayla</button>
-    <small>Oyun odası: Dünya Odası 1</small>
-  </section>
-
-  <section class="panel">
-    <h2>Zar ve hamle</h2>
-    <div id="dice">—</div>
-    <div class="muted" id="moves">Önce oyuna katıl.</div>
-    <button id="roll">Zar at</button>
-    <small>Hamle sayın kadar bölge seçebilirsin.</small>
-  </section>
-
-  <section class="panel">
-    <h2>Oyuncular</h2>
-    <div id="players" class="muted">Henüz oyuncu listesi yüklenmedi.</div>
-  </section>
-</aside>
-
-<section class="panel">
-  <div class="row" style="align-items:center;margin-bottom:12px">
-    <div>
-      <h2 style="margin-bottom:3px">Dünya haritası</h2>
-      <small id="mapStatus">Harita yükleniyor...</small>
+    <div class="map-tools">
+      <button id="zoomIn" class="secondary">＋</button>
+      <button id="zoomOut" class="secondary">−</button>
+      <button id="resetZoom" class="secondary">Sıfırla</button>
     </div>
-    <div style="text-align:right">
-      <small id="regionCount">0 bölge</small>
-    </div>
-  </div>
-
-  <div class="map-tools">
-    <button id="zoomIn" class="secondary">＋</button>
-    <button id="zoomOut" class="secondary">−</button>
-    <button id="resetZoom" class="secondary">Haritayı sıfırla</button>
-  </div>
-
-  <div id="mapbox">
-    <svg id="map" viewBox="0 0 960 560"
-         aria-label="Dünya idari bölgeler haritası"></svg>
-  </div>
-  <p class="muted">
-    Bir bölgeye tıklayarak hamleni kullanabilirsin.
-    Bölge adını görmek için üzerine gel.
-  </p>
-  <div id="status" role="status"></div>
-</section>
+    <div id="mapbox"><svg id="map" viewBox="0 0 960 560"></svg></div>
+    <p class="muted" id="mapHint">Bir bölgeye tıklayarak hamleni kullan.</p>
+    <div id="status" role="status"></div>
+  </section>
 </main>
 
 <script type="module">
-import { createClient } from
-  "https://esm.sh/@supabase/supabase-js@2";
-import * as d3 from
-  "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
-const SUPABASE_URL =
-  "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
-
-const SUPABASE_KEY =
-  "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
-
-const GAME_ID = "11111111-1111-1111-1111-111111111111";
-
+const SUPABASE_URL = "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
+const SUPABASE_KEY = "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const $ = id => document.getElementById(id);
 
 let session = null;
-let me = null;
+let gameState = null;      // sunucudan gelen tüm oyun durumu
 let features = [];
-let moves = 0;
-let mapReady = false;
-let ownership = new Map();
-let players = [];
-let zoomBehavior;
-let mapLayer;
-let joined = false;
+let neighbors = new Map(); // region_id -> Set<region_id>
+let ownership = new Map(); // region_id -> owner obj
+let planeMode = false;
+let channel = null;
+let zoomBehavior, mapLayer;
 
-function message(text) {
-  $("status").textContent = text;
+// ---------- yardımcılar ----------
+function msg(t){ $("status").textContent = t; }
+function validColor(c){ return /^#[0-9a-fA-F]{6}$/.test(c); }
+function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
+function me(){ return findPlayer(session?.user?.id); }
+function iAmTurn(){ return gameState?.game?.current_turn_user_id === session?.user?.id; }
+function curPhase(){ return gameState?.game?.status || "lobby"; }
+function myDiceLeft(){
+  if (!gameState) return 0;
+  const purpose = curPhase()==="war" ? "war" : "move";
+  const uid = session?.user?.id;
+  const d = gameState.dice.filter(x => x.user_id===uid && x.purpose===purpose && x.used < x.value);
+  return d.reduce((s,x)=>s+(x.value-x.used),0);
 }
 
-function updateMoves() {
-  $("moves").textContent =
-    joined
-      ? `Kalan hamle: ${moves}`
-      : "Önce oyuna katıl.";
-  $("roll").disabled = !joined;
-}
-
-function validColor(color) {
-  return /^#[0-9a-fA-F]{6}$/.test(color);
-}
-
-async function loadCountries() {
-  const { data, error } = await db
-    .from("countries")
-    .select("code,name")
-    .order("name");
-
+// ---------- AUTH ----------
+async function signup(email, pw){
+  const { data, error } = await db.auth.signUp({ email, password: pw });
   if (error) throw error;
+  if (data.session) { session = data.session; afterLogin(); }
+  else msg("Hesap oluşturuldu. E-postanı doğrula.");
+}
+async function login(email, pw){
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
+  if (error) throw error;
+  session = data.session;
+  afterLogin();
+}
+async function logout(){
+  await db.auth.signOut();
+  session = null; gameState = null;
+  if (channel) { db.removeChannel(channel); channel = null; }
+  renderAuth();
+}
 
-  $("country").replaceChildren();
+async function afterLogin(){
+  $("userState").textContent = "Giriş yapıldı";
+  // Devam eden oyunu bul
+  const { data, error } = await db.rpc("find_my_active_game");
+  if (error) { msg(error.message); return; }
+  if (data) { gameState = data; enterGame(); }
+  else renderMenu();
+}
 
-  for (const c of data) {
-    const option = document.createElement("option");
-    option.value = c.code;
-    option.textContent = c.name;
-    $("country").append(option);
+// ---------- MENÜ / LOBI / OYUN ----------
+function renderAuth(){
+  $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>Hesap</h2>
+      <input id="email" type="email" placeholder="E-posta">
+      <input id="password" type="password" placeholder="Şifre">
+      <div class="row">
+        <button id="signupBtn">Kayıt ol</button>
+        <button id="loginBtn" class="secondary">Giriş yap</button>
+      </div>
+    </section>`;
+  $("signupBtn").onclick = () => withStatus(()=>signup($("email").value.trim(), $("password").value));
+  $("loginBtn").onclick = () => withStatus(()=>login($("email").value.trim(), $("password").value));
+}
+
+function renderMenu(){
+  $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>Oyun Kur</h2>
+      <input id="newGameName" placeholder="Oyun adı (ör. Dünya Odası 1)">
+      <input id="newGameMax" type="number" min="2" max="8" value="8" placeholder="Maks oyuncu">
+      <button id="createGameBtn">Yeni Oyun Kur</button>
+      <small style="display:block;margin-top:6px">Kurucu olarak otomatik katılırsın.</small>
+    </section>
+    <section class="panel">
+      <h2>Oyun'a Katıl</h2>
+      <input id="joinCode" placeholder="6 haneli oyun kodu" maxlength="6" inputmode="numeric">
+      <input id="joinUsername" placeholder="Oyuncu adın" maxlength="24">
+      <label class="muted">Ülke / başlangıç noktası</label>
+      <select id="joinCountry"><option value="">Yükleniyor…</option></select>
+      <label class="muted">Renk</label>
+      <input id="joinColor" type="color" value="#22c55e">
+      <button id="joinGameBtn" class="success">Katıl</button>
+    </section>
+    <section class="panel">
+      <button id="logoutBtn" class="secondary">Çıkış yap</button>
+    </section>`;
+  fillCountries();
+  $("createGameBtn").onclick = () => withStatus(async () => {
+    const name = $("newGameName").value.trim() || "Dünya Odası";
+    const max = Math.max(2, Math.min(8, +$("newGameMax").value || 8));
+    const { data, error } = await db.rpc("create_game", { p_name: name, p_max_players: max });
+    if (error) throw error;
+    await loadGameState(data.id);
+    enterGame();
+  });
+  $("joinGameBtn").onclick = () => withStatus(async () => {
+    const code = $("joinCode").value.trim();
+    const uname = $("joinUsername").value.trim();
+    const country = $("joinCountry").value;
+    const color = $("joinColor").value;
+    if (code.length !== 6) throw new Error("6 haneli kod gir.");
+    if (uname.length < 2 || uname.length > 24) throw new Error("Oyuncu adı 2-24 karakter.");
+    if (!country || !validColor(color)) throw new Error("Ülke ve renk seç.");
+    const { data, error } = await db.rpc("join_game_by_code", {
+      p_code: code, p_country: country, p_color: color
+    });
+    if (error) throw error;
+    // Profil adını güncelle (varsa)
+    await db.from("profiles").upsert({ id: session.user.id, username: uname });
+    await loadGameState(data.id);
+    enterGame();
+  });
+  $("logoutBtn").onclick = () => withStatus(logout);
+}
+
+async function fillCountries(){
+  const sel = $("joinCountry");
+  if (!sel) return;
+  try {
+    const { data, error } = await db.from("countries").select("code,name").order("name");
+    if (error) throw error;
+    sel.replaceChildren();
+    for (const c of data) {
+      const o = document.createElement("option");
+      o.value = c.code; o.textContent = `${c.name} (${c.code})`;
+      sel.append(o);
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Ülke listesi yüklenemedi</option>';
   }
 }
 
-async function loadMap() {
-  $("mapStatus").textContent = "regions.geojson okunuyor...";
+async function loadGameState(gameId){
+  const { data, error } = await db.rpc("get_game_state", { p_game_id: gameId });
+  if (error) throw error;
+  gameState = data;
+  syncOwnership();
+}
 
-  const response = await fetch("./regions.geojson");
+function syncOwnership(){
+  ownership.clear();
+  for (const o of gameState.ownership) ownership.set(o.region_id, o);
+}
 
-  if (!response.ok) {
-    throw new Error(
-      "regions.geojson yüklenemedi. Dosyanın index.html ile aynı klasörde olduğuna emin ol."
-    );
+function enterGame(){
+  subscribeRealtime();
+  renderSidePanel();
+  repaintMap();
+  $("subTitle").textContent =
+    `${gameState.game.name} • Kod: ${gameState.game.code}`;
+}
+
+function subscribeRealtime(){
+  if (channel) db.removeChannel(channel);
+  channel = db.channel("game-" + gameState.game.id)
+    .on("postgres_changes", { event:"*", schema:"public", table:"games",
+      filter:`id=eq.${gameState.game.id}` }, refresh)
+    .on("postgres_changes", { event:"*", schema:"public", table:"game_players",
+      filter:`game_id=eq.${gameState.game.id}` }, refresh)
+    .on("postgres_changes", { event:"*", schema:"public", table:"region_ownership",
+      filter:`game_id=eq.${gameState.game.id}` }, refresh)
+    .on("postgres_changes", { event:"*", schema:"public", table:"wars",
+      filter:`game_id=eq.${gameState.game.id}` }, refresh)
+    .on("postgres_changes", { event:"*", schema:"public", table:"plane_routes",
+      filter:`game_id=eq.${gameState.game.id}` }, refresh)
+    .subscribe();
+}
+async function refresh(){
+  await loadGameState(gameState.game.id);
+  renderSidePanel();
+  repaintMap();
+}
+
+// ---------- KENAR PANEL (LOBI veya OYUN) ----------
+function renderSidePanel(){
+  if (!gameState) return renderMenu();
+  const g = gameState.game;
+  if (g.status === "lobby") return renderLobby();
+  if (g.status === "war") return renderWar();
+  if (g.status === "ended") return renderEnded();
+  return renderPlaying();
+}
+
+function playerListHTML(){
+  return gameState.players.map(p => {
+    const isTurn = p.user_id === gameState.game.current_turn_user_id;
+    const mine = p.user_id === session.user.id;
+    const regionCount = gameState.ownership.filter(o => o.owner_user_id === p.user_id).length;
+    const defeated = gameState.game.status === "ended" && p.user_id !== gameState.game.winner_id;
+    return `<div class="player ${isTurn?'turn':''} ${defeated?'defeated':''}">
+      <span class="swatch" style="background:${p.color}"></span>
+      <div style="flex:1;min-width:0">
+        <div><strong>${escapeHTML(p.username||'Oyuncu')}</strong>
+        ${mine?'<small>(sen)</small>':''}</div>
+        <small>${regionCount} bölge</small>
+      </div>
+      ${isTurn?'<span class="badge playing">Sıra</span>':''}
+    </div>`;
+  }).join("");
+}
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+function renderLobby(){
+  const g = gameState.game;
+  const myTurnDice = gameState.dice.find(d =>
+    d.user_id === session.user.id && d.purpose === "turn_order");
+  const allRolled = gameState.players.every(p =>
+    gameState.dice.some(d => d.user_id === p.user_id && d.purpose === "turn_order"));
+  const isCreator = g.creator_id === session.user.id;
+
+  $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>Lobi <span class="badge lobby">bekliyor</span></h2>
+      <div class="code-box" id="copyCode">${g.code}<small>Bu kodu arkadaşlarına gönder</small></div>
+      <small>${gameState.players.length} / ${g.max_players} oyuncu</small>
+    </section>
+    <section class="panel">
+      <h2>Sıra Zarı</h2>
+      <div id="dice">${myTurnDice ? "🎲 "+myTurnDice.value : "—"}</div>
+      <button id="rollTurnBtn" ${myTurnDice?'disabled':''}>Zar at (sıra için)</button>
+      <small>En büyük atan ilk oynar.</small>
+      ${isCreator ? `<button id="startBtn" style="margin-top:10px"
+        ${allRolled?'':'disabled'} class="success">
+        Oyunu Başlat</button>` : `<small>Kurucu bekleniyor…</small>`}
+    </section>
+    <section class="panel">
+      <h2>Oyuncular</h2>
+      <div id="players">${playerListHTML()}</div>
+    </section>
+    <button id="logoutBtn" class="secondary">Çıkış</button>`;
+
+  document.getElementById("copyCode").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(gameState.game.code);
+      msg("Kod kopyalandı: " + gameState.game.code);
+    } catch { msg("Kod: " + gameState.game.code); }
+  };
+  $("rollTurnBtn").onclick = () => withStatus(async () => {
+    const { error } = await db.rpc("roll_turn_dice", { p_game_id: gameState.game.id });
+    if (error) throw error;
+    await refresh();
+  });
+  if (isCreator) {
+    $("startBtn").onclick = () => withStatus(async () => {
+      const { error } = await db.rpc("finalize_turn_order", { p_game_id: gameState.game.id });
+      if (error) throw error;
+      await refresh();
+    });
   }
+  $("logoutBtn").onclick = () => withStatus(logout);
+}
 
-  const data = await response.json();
+function renderPlaying(){
+  const g = gameState.game;
+  const myTurn = iAmTurn();
+  const diceLeft = myDiceLeft();
+  const myDice = gameState.dice.find(d =>
+    d.user_id === session.user.id && d.purpose === "move" && d.used < d.value);
 
-  if (data.type !== "FeatureCollection" ||
-      !Array.isArray(data.features)) {
-    throw new Error("GeoJSON dosyasının biçimi geçersiz.");
+  $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>${escapeHTML(g.name)} <span class="badge playing">oynanıyor</span></h2>
+      <small>Kod: ${g.code}</small>
+    </section>
+    <section class="panel">
+      <h2>Zar ve hamle</h2>
+      <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
+      <div class="muted">${myTurn ? `Kalan hamle: ${diceLeft}` : "Sıra sende değil"}</div>
+      <button id="rollMoveBtn" ${!myTurn || diceLeft>0 ? 'disabled' : ''}>Zar at</button>
+      <label class="toggle-plane ${planeMode?'active':''}" id="planeToggle">
+        <input type="checkbox" id="planeCheckbox" ${planeMode?'checked':''}>
+        <span>✈️ Uçak modu (istediğin bölgeye uç)</span>
+      </label>
+    </section>
+    <section class="panel">
+      <h2>Savaş İlan Et</h2>
+      <select id="targetPlayer">
+        <option value="">— rakip seç —</option>
+        ${gameState.players
+          .filter(p => p.user_id !== session.user.id)
+          .map(p => `<option value="${p.user_id}">${escapeHTML(p.username||'Oyuncu')}</option>`)
+          .join("")}
+      </select>
+      <button id="declareWarBtn" class="danger" ${!myTurn || gameState.war ? 'disabled':''}>
+        ⚔️ Savaş İlan Et
+      </button>
+    </section>
+    <section class="panel">
+      <h2>Oyuncular</h2>
+      <div id="players">${playerListHTML()}</div>
+    </section>
+    <button id="logoutBtn" class="secondary">Çıkış</button>`;
+
+  if (myTurn && diceLeft === 0) {
+    $("rollMoveBtn").onclick = () => withStatus(async () => {
+      const { error } = await db.rpc("roll_move_dice", { p_game_id: g.id });
+      if (error) throw error;
+      await refresh();
+    });
   }
+  $("planeToggle").onclick = (e) => {
+    if (e.target.tagName !== 'INPUT') e.preventDefault();
+    planeMode = !planeMode;
+    renderSidePanel();
+    updateMapHints();
+  };
+  $("declareWarBtn").onclick = () => withStatus(async () => {
+    const target = $("targetPlayer").value;
+    if (!target) throw new Error("Rakip seç");
+    if (!confirm("Savaş ilan edilsin mi? Tüm oyun bu savaşa odaklanır.")) return;
+    const { error } = await db.rpc("declare_war", {
+      p_game_id: g.id, p_defender_id: target
+    });
+    if (error) throw error;
+    await refresh();
+  });
+  $("logoutBtn").onclick = () => withStatus(logout);
+  updateMapHints();
+}
 
+function renderWar(){
+  const g = gameState.game;
+  const w = gameState.war;
+  const myTurn = w?.current_turn_user_id === session.user.id;
+  const attacker = findPlayer(w.attacker_id);
+  const defender = findPlayer(w.defender_id);
+  const diceLeft = myDiceLeft();
+  const myDice = gameState.dice.find(d =>
+    d.user_id === session.user.id && d.purpose === "war" && d.used < d.value);
+  const iAmAttacker = w.attacker_id === session.user.id;
+  const iWantEnd = iAmAttacker ? w.attacker_wants_end : w.defender_wants_end;
+
+  $("sidePanel").innerHTML = `
+    <div class="war-banner">
+      <span>⚔️ SAVAŞ: ${escapeHTML(attacker?.username||'?')} ↔ ${escapeHTML(defender?.username||'?')}</span>
+      <span class="badge war">aktif</span>
+    </div>
+    <section class="panel">
+      <h2>Savaş Hamlesi</h2>
+      <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
+      <div class="muted">${myTurn ? `Kalan füze: ${diceLeft}` : "Sıra sende değil"}</div>
+      <button id="rollWarBtn" ${!myTurn || diceLeft>0 ? 'disabled' : ''}>
+        Savaş Zarı At
+      </button>
+      <small>Zar = füze sayısı. Düşman şehrine tıklayarak füze at.</small>
+    </section>
+    <section class="panel">
+      <h2>Savaşı Bitir</h2>
+      <small>İki taraf da basarsa savaş biter ve normal oyuna dönülür.</small>
+      <button id="endWarBtn" class="secondary" ${iWantEnd?'disabled':''} style="margin-top:8px">
+        ${iWantEnd ? 'Onay verildi, karşı taraf bekleniyor…' : 'Savaşı Bitir'}
+      </button>
+      <div class="muted" style="margin-top:6px">
+        Saldıran: ${w.attacker_wants_end?'✅':'⏳'} &nbsp; Savunan: ${w.defender_wants_end?'✅':'⏳'}
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Oyuncular</h2>
+      <div id="players">${playerListHTML()}</div>
+    </section>
+    <button id="logoutBtn" class="secondary">Çıkış</button>`;
+
+  if (myTurn && diceLeft === 0) {
+    $("rollWarBtn").onclick = () => withStatus(async () => {
+      const { error } = await db.rpc("roll_war_dice", { p_war_id: w.id });
+      if (error) throw error;
+      await refresh();
+    });
+  }
+  $("endWarBtn").onclick = () => withStatus(async () => {
+    const { error } = await db.rpc("request_end_war", { p_war_id: w.id });
+    if (error) throw error;
+    await refresh();
+  });
+  $("logoutBtn").onclick = () => withStatus(logout);
+  updateMapHints();
+}
+
+function renderEnded(){
+  const g = gameState.game;
+  const winner = findPlayer(g.winner_id);
+  $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>Oyun Bitti <span class="badge ended">bitti</span></h2>
+      <div style="font-size:22px;text-align:center;margin:16px 0">
+        🏆 <strong>${escapeHTML(winner?.username||'Kazanan')}</strong>
+      </div>
+      <button onclick="location.reload()">Yeni oyun kur</button>
+    </section>`;
+  updateMapHints();
+}
+
+// ---------- HARİTA ----------
+async function loadMap(){
+  $("mapStatus").textContent = "regions.geojson okunuyor…";
+  const r = await fetch("./regions.geojson");
+  if (!r.ok) throw new Error("regions.geojson yüklenemedi (index.html ile aynı klasörde olmalı).");
+  const data = await r.json();
+  if (data.type !== "FeatureCollection") throw new Error("GeoJSON geçersiz.");
   features = data.features.filter(f => f.geometry);
-
-  if (!features.length) {
-    throw new Error("Harita dosyasında çizilebilir bölge bulunamadı.");
-  }
-
-  $("regionCount").textContent =
-    features.length.toLocaleString("tr-TR") + " bölge";
-
+  $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " bölge";
+  buildNeighbors();
   drawMap(data);
 }
 
-function drawMap(data) {
+function regionId(f){
+  const p = f.properties || {};
+  return String(p.region_id || p.shapeID || p.shapeISO || "");
+}
+
+// Basit komşuluk: 3 ondalığa (≈100m) yuvarlanmış köşe eşleşmesi
+function buildNeighbors(){
+  neighbors.clear();
+  const vertexMap = new Map();
+  const roundKey = (x,y) => x.toFixed(3) + "," + y.toFixed(3);
+  const collect = (geom) => {
+    const pts = [];
+    const walk = c => {
+      if (typeof c[0] === "number") pts.push(c);
+      else c.forEach(walk);
+    };
+    walk(geom.coordinates);
+    return pts;
+  };
+  // vertex → region ids
+  for (const f of features) {
+    const rid = regionId(f);
+    if (!rid) continue;
+    for (const [x,y] of collect(f.geometry)) {
+      const k = roundKey(x,y);
+      if (!vertexMap.has(k)) vertexMap.set(k, new Set());
+      vertexMap.get(k).add(rid);
+    }
+  }
+  // neighbors
+  for (const f of features) {
+    const rid = regionId(f);
+    if (!rid) continue;
+    const set = new Set();
+    for (const [x,y] of collect(f.geometry)) {
+      const k = roundKey(x,y);
+      vertexMap.get(k).forEach(other => { if (other !== rid) set.add(other); });
+    }
+    neighbors.set(rid, set);
+  }
+}
+
+function drawMap(data){
   const svg = d3.select("#map");
   svg.selectAll("*").remove();
-
   const projection = d3.geoNaturalEarth1()
     .fitExtent([[8, 8], [952, 552]], data);
-
   const path = d3.geoPath(projection);
 
   mapLayer = svg.append("g");
-
   mapLayer.selectAll("path")
     .data(features)
     .join("path")
@@ -318,366 +577,131 @@ function drawMap(data) {
     .attr("data-region-id", f => regionId(f))
     .attr("fill", f => regionColor(f))
     .attr("d", path)
-    .on("click", async (event, feature) => {
-      await captureRegion(feature);
-    })
+    .on("click", (ev, f) => onRegionClick(f))
     .append("title")
-    .text(f => {
-      const p = f.properties || {};
-      return p.region_name || p.shapeName || p.name || "Bölge";
-    });
+    .text(f => (f.properties?.region_name || f.properties?.shapeName || f.properties?.name || "Bölge"));
 
-  zoomBehavior = d3.zoom()
-    .scaleExtent([1, 12])
-    .on("zoom", event => {
-      mapLayer.attr("transform", event.transform);
-    });
-
+  zoomBehavior = d3.zoom().scaleExtent([1, 14])
+    .on("zoom", e => mapLayer.attr("transform", e.transform));
   svg.call(zoomBehavior);
-  mapReady = true;
-
-  $("mapStatus").textContent = "Harita hazır";
 }
 
-function regionId(feature) {
-  const p = feature.properties || {};
-  return String(p.region_id || p.shapeID || p.shapeISO || "");
+function regionColor(f){
+  const id = regionId(f);
+  const o = ownership.get(id);
+  return o?.owner_color || "#26354a";
 }
 
-function regionColor(feature) {
-  const id = regionId(feature);
-  return ownership.get(id)?.owner_color || "#26354a";
+function repaintMap(){
+  if (!mapLayer) return;
+  mapLayer.selectAll("path.region")
+    .attr("fill", f => regionColor(f))
+    .classed("plane-target", false);
 }
 
-function repaintRegion(id) {
-  d3.select("#map")
-    .selectAll("path.region")
-    .filter(f => regionId(f) === id)
-    .attr("fill", f => regionColor(f));
-}
-
-async function loadOwnership() {
-  const { data, error } = await db
-    .from("region_ownership")
-    .select("region_id,owner_user_id,owner_color")
-    .eq("game_id", GAME_ID);
-
-  if (error) throw error;
-
-  ownership.clear();
-
-  for (const row of data) {
-    ownership.set(row.region_id, row);
-  }
-
-  if (mapReady) {
-    d3.select("#map")
-      .selectAll("path.region")
-      .attr("fill", f => regionColor(f));
-  }
-}
-
-async function ensureRegionsRegistered() {
-  const { count, error } = await db
-    .from("regions")
-    .select("id", { count: "exact", head: true });
-
-  if (error) throw error;
-
-  if (count === features.length) return;
-
-  message("Bölge kayıtları hazırlanıyor...");
-
-  for (let i = 0; i < features.length; i += 200) {
-    const batch = features.slice(i, i + 200).map(f => {
-      const p = f.properties || {};
-      return {
-        id: regionId(f),
-        name: String(
-          p.region_name || p.shapeName || p.name || "Bölge"
-        )
-      };
-    }).filter(r => r.id);
-
-    const { error: syncError } = await db.rpc("sync_regions", {
-      p_regions: batch
-    });
-
-    if (syncError) throw syncError;
-
-    message(`Bölgeler kaydediliyor: ${
-      Math.min(i + 200, features.length)
-    }/${features.length}`);
-  }
-}
-
-async function refreshPlayers() {
-  const { data, error } = await db
-    .from("game_players")
-    .select("user_id,country_code,color")
-    .eq("game_id", GAME_ID);
-
-  if (error) throw error;
-
-  const ids = data.map(p => p.user_id);
-  let profiles = [];
-
-  if (ids.length) {
-    const result = await db
-      .from("profiles")
-      .select("id,username")
-      .in("id", ids);
-
-    if (result.error) throw result.error;
-    profiles = result.data;
-  }
-
-  players = data.map(p => ({
-    ...p,
-    username: profiles.find(x => x.id === p.user_id)?.username
-      || "Oyuncu"
-  }));
-
-  $("players").replaceChildren();
-
-  for (const p of players) {
-    const item = document.createElement("div");
-    item.className = "player";
-
-    const swatch = document.createElement("span");
-    swatch.className = "swatch";
-    swatch.style.background = p.color;
-
-    const info = document.createElement("div");
-    const name = document.createElement("strong");
-    name.textContent = p.username;
-
-    const country = document.createElement("div");
-    country.className = "muted";
-    country.textContent = p.country_code;
-
-    info.append(name, country);
-    item.append(swatch, info);
-    $("players").append(item);
-  }
-
-  if (!players.length) {
-    $("players").textContent = "Henüz oyuncu yok.";
-  }
-}
-
-async function joinGame() {
-  if (!session) {
-    throw new Error("Önce giriş yapmalısın.");
-  }
-
-  const username = $("username").value.trim();
-  const country = $("country").value;
-  const color = $("color").value;
-
-  if (username.length < 2 || username.length > 24) {
-    throw new Error("Oyuncu adı 2-24 karakter olmalı.");
-  }
-
-  if (!country || !validColor(color)) {
-    throw new Error("Ülke ve renk seçmelisin.");
-  }
-
-  const { error } = await db.rpc("join_game", {
-    p_game_id: GAME_ID,
-    p_username: username,
-    p_country: country,
-    p_color: color
-  });
-
-  if (error) throw error;
-
-  me = {
-    id: session.user.id,
-    username,
-    color
-  };
-
-  joined = true;
-  $("userState").textContent = `Oyuncu: ${username}`;
-
-  await ensureRegionsRegistered();
-  await loadOwnership();
-  await refreshPlayers();
-
-  message("Oyuna katıldın. Zar atarak hamle başlatabilirsin.");
-  updateMoves();
-}
-
-async function captureRegion(feature) {
-  if (!session || !joined) {
-    message("Önce giriş yap ve oyuna katıl.");
-    return;
-  }
-
-  if (moves <= 0) {
-    message("Önce zar atmalısın.");
-    return;
-  }
-
-  const id = regionId(feature);
-
-  if (!id) {
-    message("Bu bölgenin kimliği bulunamadı.");
-    return;
-  }
-
-  const existing = ownership.get(id);
-
-  if (existing?.owner_user_id === session.user.id) {
-    message("Bu bölge zaten senin.");
-    return;
-  }
-
-  try {
-    message("Bölge kaydediliyor...");
-
-    const { error } = await db.rpc("claim_region", {
-      p_game_id: GAME_ID,
-      p_region_id: id
-    });
-
-    if (error) throw error;
-
-    moves--;
-    updateMoves();
-
-    await loadOwnership();
-    message("Bölge sahipliği kaydedildi.");
-  } catch (error) {
-    message("Bölge alınamadı: " + error.message);
-  }
-}
-
-async function withStatus(action) {
-  try {
-    await action();
-  } catch (error) {
-    message(error.message || String(error));
-  }
-}
-
-$("signup").onclick = () => withStatus(async () => {
-  const { data, error } = await db.auth.signUp({
-    email: $("email").value.trim(),
-    password: $("password").value
-  });
-
-  if (error) throw error;
-
-  if (data.session) {
-    session = data.session;
-    $("userState").textContent = "Giriş yapıldı";
-    message("Hesap oluşturuldu.");
+function updateMapHints(){
+  const phase = curPhase();
+  if (phase === "war") {
+    $("mapHint").textContent = "Düşman bölgesine tıklayarak füze at.";
+  } else if (planeMode) {
+    $("mapHint").textContent = "✈️ Uçak modu açık — istediğin bölgeye tıkla.";
   } else {
-    message("Hesap oluşturuldu. E-posta doğrulaması gerekiyorsa doğrula, ardından giriş yap.");
+    $("mapHint").textContent = "Kendi bölgene komşu bir bölgeye tıklayarak genişle.";
   }
-});
+}
 
-$("login").onclick = () => withStatus(async () => {
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $("email").value.trim(),
-    password: $("password").value
-  });
+async function onRegionClick(f){
+  if (!gameState) return;
+  const phase = curPhase();
+  const gid = gameState.game.id;
+  const rid = regionId(f);
+  if (!rid) { msg("Bu bölgenin kimliği yok."); return; }
 
-  if (error) throw error;
-
-  session = data.session;
-  $("userState").textContent = "Giriş yapıldı";
-
-  message("Giriş başarılı.");
-  await ensureRegionsRegistered();
-  await loadOwnership();
-  await refreshPlayers();
-});
-
-$("logout").onclick = () => withStatus(async () => {
-  const { error } = await db.auth.signOut();
-  if (error) throw error;
-
-  session = null;
-  me = null;
-  joined = false;
-  moves = 0;
-
-  $("userState").textContent = "Oturum kapalı";
-  updateMoves();
-  message("Çıkış yapıldı.");
-});
-
-$("join").onclick = () => withStatus(joinGame);
-
-$("roll").onclick = () => {
-  if (!joined) {
-    message("Önce oyuna katıl.");
+  if (phase === "war") {
+    // füze at
+    const w = gameState.war;
+    if (!w) return;
+    if (w.current_turn_user_id !== session.user.id) { msg("Sıra sende değil."); return; }
+    const own = ownership.get(rid);
+    const enemyId = session.user.id === w.attacker_id ? w.defender_id : w.attacker_id;
+    if (!own || own.owner_user_id !== enemyId) {
+      msg("Sadece düşman bölgelerine füze atabilirsin.");
+      return;
+    }
+    if (myDiceLeft() <= 0) { msg("Önce savaş zarı at."); return; }
+    if (!confirm("Füze atılsın mı? Bu bölge sana geçer.")) return;
+    msg("Füze uçuyor…");
+    try {
+      const { data, error } = await db.rpc("fire_missile", {
+        p_war_id: w.id, p_target_region_id: rid
+      });
+      if (error) throw error;
+      if (data.war_over) msg("💥 Savaş bitti! Kazanan: sen");
+      else msg("💥 Hedef alındı. Düşman kalanı: " + data.defender_remaining);
+      await refresh();
+    } catch (e) { msg("Hata: " + e.message); }
     return;
   }
 
-  if (moves > 0) {
-    message("Önce mevcut hamlelerini kullan.");
-    return;
+  if (phase !== "playing") { msg("Şu an bölge alınamaz."); return; }
+  if (!iAmTurn()) { msg("Sıra sende değil."); return; }
+  if (myDiceLeft() <= 0) { msg("Önce zar at."); return; }
+  if (ownership.has(rid)) { msg("Bu bölge zaten alınmış."); return; }
+
+  // komşu kontrolü (plane değilse)
+  if (!planeMode) {
+    const iHaveAny = [...ownership.values()].some(o => o.owner_user_id === session.user.id);
+    if (iHaveAny) {
+      const adj = neighbors.get(rid) || new Set();
+      const ok = [...adj].some(a => ownership.get(a)?.owner_user_id === session.user.id);
+      if (!ok) {
+        msg("Bu bölge komşu değil. 'Uçak modu'nu dene.");
+        return;
+      }
+    }
   }
 
-  moves = Math.floor(Math.random() * 6) + 1;
-  $("dice").textContent = "🎲 " + moves;
-  updateMoves();
-  message(`Zarın ${moves}. Bölge seçebilirsin.`);
-};
+  msg(planeMode ? "✈️ Uçak yolda…" : "Bölge alınıyor…");
+  try {
+    const adjArr = [...(neighbors.get(rid) || [])];
+    const { data, error } = await db.rpc("claim_region_v2", {
+      p_game_id: gid, p_region_id: rid,
+      p_plane: planeMode, p_adjacent_ids: adjArr
+    });
+    if (error) throw error;
+    msg("✅ Alındı. Kalan: " + data.remaining);
+    await refresh();
+  } catch (e) {
+    msg("Hata: " + e.message);
+  }
+}
 
-$("zoomIn").onclick = () => d3.select("#map")
-  .transition().call(zoomBehavior.scaleBy, 1.4);
+// ---------- HARİTA TOOLS ----------
+$("zoomIn").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1.4);
+$("zoomOut").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1/1.4);
+$("resetZoom").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.transform, d3.zoomIdentity);
 
-$("zoomOut").onclick = () => d3.select("#map")
-  .transition().call(zoomBehavior.scaleBy, 1 / 1.4);
+// ---------- BAŞLAT ----------
+async function withStatus(fn){
+  try { await fn(); } catch(e) { msg(e.message || String(e)); console.error(e); }
+}
 
-$("resetZoom").onclick = () => d3.select("#map")
-  .transition().call(zoomBehavior.transform, d3.zoomIdentity);
-
-async function start() {
-  await loadCountries();
+async function start(){
   await loadMap();
-
   const { data } = await db.auth.getSession();
   session = data.session;
-
   if (session) {
     $("userState").textContent = "Giriş yapıldı";
-    await loadOwnership();
-    await refreshPlayers();
+    await afterLogin();
   } else {
     $("userState").textContent = "Oturum kapalı";
+    renderAuth();
   }
-
-  db.channel("world-game")
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "region_ownership",
-      filter: `game_id=eq.${GAME_ID}`
-    }, () => {
-      withStatus(loadOwnership);
-    })
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "game_players",
-      filter: `game_id=eq.${GAME_ID}`
-    }, () => {
-      withStatus(refreshPlayers);
-    })
-    .subscribe();
-
-  updateMoves();
+  updateMapHints();
 }
-
-start().catch(error => {
+start().catch(e => {
   $("mapStatus").textContent = "Yükleme başarısız";
-  message(error.message || String(error));
+  msg(e.message || String(e));
 });
 </script>
 </body>
