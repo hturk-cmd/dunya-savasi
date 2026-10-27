@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dünya Hâkimiyeti — Gerçek Dünya Haritası</title>
+  <!-- D3.js ve TopoJSON: Gerçek Dünya Sınır Verisini İşlemek İçin -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
   <style>
     :root { color-scheme: dark; --bg:#0b1020; --panel:#141c2e; --line:#2b3852; --text:#eef3ff; --muted:#9aa9c5; --accent:#4ade80; --danger:#f87171; }
     * { box-sizing:border-box; }
@@ -27,15 +30,15 @@
     .status.ok { border-color:#286b4a; } .status.err { border-color:var(--danger); color:#fecaca; }
     .wide { grid-column:1/-1; }
     
-    /* Gerçek Dünya Haritası Alanı */
-    .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:15px; text-align:center; }
-    svg.world-map { width:100%; height:auto; max-height:480px; display:block; margin:0 auto; background:#0b1323; border-radius:10px; }
-    svg.world-map path { fill:#1e293b; stroke:#334155; stroke-width:0.8px; transition:fill .2s, stroke .2s; cursor:pointer; }
-    svg.world-map path:hover { fill:#334155; stroke:var(--accent); stroke-width:1.5px; }
-    svg.world-map path.selected { fill:#2563eb !important; stroke:#93c5fd; stroke-width:2px; }
+    /* GERÇEK DÜNYA HARİTASI */
+    .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:15px; text-align:center; position:relative; min-height:450px; }
+    #world-map { width:100%; height: auto; display:block; margin:0 auto; background:#0b1323; border-radius:10px; }
+    .country-path { fill:#1e293b; stroke:#334155; stroke-width:0.6px; transition:fill .2s, stroke .2s; cursor:pointer; }
+    .country-path:hover { fill:#334155; stroke:var(--accent); stroke-width:1.2px; }
+    .country-path.selected { fill:#2563eb !important; stroke:#93c5fd; stroke-width:1.5px; }
+    #map-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--accent); font-weight:bold; }
 
     .small { font-size:12px; color:var(--muted); }
-    details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); font-size:13px; }
     .player { display:flex; align-items:center; gap:10px; margin:8px 0; }
     .dot { width:13px; height:13px; border-radius:50%; flex:none; }
     .you { color:var(--accent); font-size:12px; }
@@ -45,7 +48,7 @@
 <body>
 <header>
   <div class="brand">🌍 Dünya Hâkimiyeti</div>
-  <span class="pill">GERÇEK HARİTA v4</span>
+  <span class="pill">GERÇEK ATLAS HARİTA</span>
 </header>
 <main>
   <section class="card">
@@ -66,7 +69,7 @@
 
   <section class="card" id="profileCard">
     <h2>Ülke ve Renk Seçimi</h2>
-    <p id="gameInfo">Dünya haritasından ülkeni seç veya listeden bul.</p>
+    <p id="gameInfo">Dünya haritasından gerçek ülkene tıkla veya listeden seç.</p>
     <label for="username">Oyuncu Adı</label>
     <input id="username" maxlength="24" placeholder="Örn: Komutan">
     <div class="row">
@@ -79,7 +82,7 @@
       </div>
       <div>
         <label for="country">Başlangıç Ülkesi</label>
-        <select id="country"><option value="">Yükleniyor…</option></select>
+        <select id="country"><option value="">Harita yükleniyor…</option></select>
       </div>
     </div>
     <button id="saveProfile">Seçimi Kaydet</button>
@@ -88,45 +91,8 @@
 
   <section class="card wide">
     <div class="map-container">
-      <p class="small" style="margin-top:0">🗺️ Dünya Siyasi Sınır Haritası (Ülkelere tıklayarak seçebilirsin)</p>
-      <!-- Gerçek dünya kıta ve ülke formuna uygun SVG vektörleri -->
-      <svg class="world-map" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
-        <!-- Kanada (CA) - Kuzey Amerika üst kısım -->
-        <path id="map-CA" d="M 80,60 Q 180,40 280,55 L 290,140 Q 200,165 100,140 Z" onclick="selectCountryFromMap('CA')" />
-        
-        <!-- Brezilya (BR) - Güney Amerika -->
-        <path id="map-BR" d="M 280,260 Q 360,270 380,340 Q 350,420 270,410 Q 240,340 280,260 Z" onclick="selectCountryFromMap('BR')" />
-        
-        <!-- Norveç (NO) -->
-        <path id="map-NO" d="M 475,55 Q 490,50 495,115 L 470,110 Z" onclick="selectCountryFromMap('NO')" />
-        
-        <!-- İsveç (SE) -->
-        <path id="map-SE" d="M 500,55 Q 515,50 520,120 L 498,118 Z" onclick="selectCountryFromMap('SE')" />
-        
-        <!-- Finlandiya (FI) -->
-        <path id="map-FI" d="M 525,60 Q 545,55 550,110 L 522,112 Z" onclick="selectCountryFromMap('FI')" />
-        
-        <!-- Almanya (DE) - Avrupa -->
-        <path id="map-DE" d="M 485,135 Q 515,130 520,165 L 480,170 Z" onclick="selectCountryFromMap('DE')" />
-        
-        <!-- Türkiye (TR) - Anadolu -->
-        <path id="map-TR" d="M 545,168 Q 585,160 625,172 L 620,198 L 540,192 Z" onclick="selectCountryFromMap('TR')" />
-        
-        <!-- Mısır (EG) - Kuzey Afrika -->
-        <path id="map-EG" d="M 545,210 Q 590,205 605,250 L 540,245 Z" onclick="selectCountryFromMap('EG')" />
-        
-        <!-- Pakistan (PK) -->
-        <path id="map-PK" d="M 640,178 Q 670,172 685,215 L 635,210 Z" onclick="selectCountryFromMap('PK')" />
-        
-        <!-- Hindistan (IN) -->
-        <path id="map-IN" d="M 690,185 Q 730,180 755,255 L 685,245 Z" onclick="selectCountryFromMap('IN')" />
-        
-        <!-- Japonya (JP) -->
-        <path id="map-JP" d="M 830,165 Q 850,160 855,215 L 830,210 Z" onclick="selectCountryFromMap('JP')" />
-        
-        <!-- Avustralya (AU) -->
-        <path id="map-AU" d="M 780,330 Q 860,320 910,380 Q 890,440 775,430 Z" onclick="selectCountryFromMap('AU')" />
-      </svg>
+      <div id="map-loading">🗺️ Gerçek Dünya Haritası Yükleniyor...</div>
+      <svg id="world-map" viewBox="0 0 960 500"></svg>
     </div>
     <h2 style="margin-top:20px">Odadaki Oyuncular <span id="count" class="small"></span></h2>
     <div id="players" class="status">Henüz liste yüklenmedi.</div>
@@ -139,10 +105,17 @@
   const $ = (id) => document.getElementById(id);
   const ROOM_ID = "11111111-1111-1111-1111-111111111111";
   let db = null, currentUser = null, channel = null;
-  let countryNames = {};
+  let countryNames = {}, playersData = [];
 
   const SUPABASE_URL = "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
   const SUPABASE_KEY = "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
+
+  // ISO 316 numeric kodlarını 2 harfli ülke kodlarına bağlayan harita
+  const numericToAlpha2 = {
+    "246":"FI", "792":"TR", "586":"PK", "752":"SE", "578":"NO",
+    "276":"DE", "356":"IN", "392":"JP", "076":"BR", "124":"CA",
+    "036":"AU", "818":"EG"
+  };
 
   function show(id, msg, kind = "") { const el = $(id); el.textContent = msg; el.className = "status " + kind; }
   function busy(btn, on) { btn.disabled = on; }
@@ -155,6 +128,57 @@
     return m;
   }
 
+  // GERÇEK DÜNYA HARİTASI ÇİZİMİ (D3 + TopoJSON)
+  async function renderRealWorldMap() {
+    const svg = d3.select("#world-map");
+    const projection = d3.geoMercator().scale(130).translate([480, 320]);
+    const pathGenerator = d3.geoPath().projection(projection);
+
+    try {
+      const response = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+      const worldData = await response.json();
+      const countries = topojson.feature(worldData, worldData.objects.countries).features;
+
+      $("map-loading").style.display = "none";
+
+      svg.selectAll("path")
+        .data(countries)
+        .enter()
+        .append("path")
+        .attr("class", "country-path")
+        .attr("d", pathGenerator)
+        .attr("id", d => {
+          const code = numericToAlpha2[d.id];
+          return code ? `map-${code}` : `map-num-${d.id}`;
+        })
+        .on("click", (event, d) => {
+          const code = numericToAlpha2[d.id];
+          if (code) {
+            $("country").value = code;
+            highlightMap(code);
+          }
+        });
+
+      applyPlayerColorsToMap();
+    } catch (err) {
+      $("map-loading").textContent = "Harita yüklenirken hata oluştu!";
+    }
+  }
+
+  function highlightMap(code) {
+    d3.selectAll(".country-path").classed("selected", false);
+    if (code) {
+      d3.select(`#map-${code}`).classed("selected", true);
+    }
+  }
+
+  function applyPlayerColorsToMap() {
+    playersData.forEach(r => {
+      const el = document.getElementById(`map-${r.country_code}`);
+      if (el) el.style.fill = r.color;
+    });
+  }
+
   async function init() {
     try {
       db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -162,6 +186,7 @@
       const { data } = await db.auth.getSession();
       currentUser = data.session?.user ?? null;
       updateAuthUi();
+      await renderRealWorldMap();
       await Promise.all([loadCountries(), loadGameStatus()]);
       await refreshPlayers();
       subscribe();
@@ -182,23 +207,10 @@
     sel.onchange = () => highlightMap(sel.value);
   }
 
-  window.selectCountryFromMap = function(code) {
-    $("country").value = code;
-    highlightMap(code);
-  };
-
-  function highlightMap(code) {
-    document.querySelectorAll("svg.world-map path").forEach(p => p.classList.remove("selected"));
-    if (code) {
-      const el = $(`map-${code}`);
-      if (el) el.classList.add("selected");
-    }
-  }
-
   async function loadGameStatus() {
     const { data } = await db.from("games").select("name,status").eq("id", ROOM_ID).single();
     if (!data) return;
-    $("gameInfo").textContent = `${data.name} · Haritadan ülkeni seçip kaydet.`;
+    $("gameInfo").textContent = `${data.name} · Gerçek haritadan ülkene tıklayabilirsin.`;
   }
 
   $("signup").addEventListener("click", async (ev) => {
@@ -255,6 +267,9 @@
       const { data: rows, error } = await db.from("game_players")
         .select("user_id,country_code,color").eq("game_id", ROOM_ID).order("created_at");
       if (error) throw error;
+      playersData = rows;
+      applyPlayerColorsToMap();
+
       $("count").textContent = `(${rows.length} Oyuncu)`;
       if (!rows.length) { show("players", "Henüz kimse ülke seçmemiş."); return; }
       
@@ -262,11 +277,6 @@
       const names = Object.fromEntries((profs || []).map((p) => [p.id, p.username]));
       
       box.className = "status"; box.replaceChildren();
-      
-      rows.forEach(r => {
-        const pathEl = $(`map-${r.country_code}`);
-        if (pathEl) pathEl.style.fill = r.color;
-      });
 
       for (const r of rows) {
         const line = document.createElement("div"); line.className = "player";
