@@ -9,16 +9,18 @@
 --muted:#9baac2;--accent:#60a5fa;--red:#ef4444;--green:#22c55e;--gold:#f59e0b}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
-header{padding:14px 18px;border-bottom:1px solid var(--line);background:#10182a;
-display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+header{padding:14px 18px;border-bottom:1px solid var(--line);background:#10182a;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
 h1{margin:0;font-size:20px}
 h2{font-size:15px;margin:0 0 12px}
 small,.muted{color:var(--muted)}
 main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;padding:14px}
-@media(max-width:900px){main{grid-template-columns:1fr;padding:8px;gap:8px}header{padding:10px 12px}h1{font-size:16px}}
+@media(max-width:900px){
+  main{grid-template-columns:1fr;padding:8px;gap:8px}
+  header{padding:10px 12px}h1{font-size:16px}
+  #mapbox{height:50vh;min-height:300px}
+}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;min-width:0}
-input,select,button{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);
-background:#0d1526;color:var(--text);margin:5px 0;font:inherit}
+input,select,button{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:#0d1526;color:var(--text);margin:5px 0;font:inherit}
 button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:650}
 button:hover{filter:brightness(1.15)}
 button.secondary{background:#27344b;border-color:#3b4962}
@@ -28,9 +30,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .row{display:flex;gap:8px}
 .row>*{min-width:0;flex:1}
 #status{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:#93c5fd;margin-top:10px}
-#mapbox{height:min(70vh,720px);min-height:380px;overflow:hidden;border-radius:12px;
-background:#0a1425;border:1px solid var(--line);position:relative}
-@media(max-width:900px){#mapbox{height:56vh;min-height:300px}}
+#mapbox{height:min(70vh,720px);min-height:380px;overflow:hidden;border-radius:12px;background:#0a1425;border:1px solid var(--line);position:relative}
 #map{width:100%;height:100%;display:block;touch-action:none}
 .region{stroke:#7c91ac;stroke-width:.4;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .12s, fill-opacity .12s}
 .region:hover{stroke:white;stroke-width:1.5}
@@ -42,19 +42,13 @@ background:#0a1425;border:1px solid var(--line);position:relative}
 .player.defeated{opacity:.4;text-decoration:line-through}
 .swatch{width:16px;height:16px;border-radius:4px;flex:0 0 16px;border:1px solid rgba(255,255,255,.3)}
 #dice{font-size:34px;font-weight:800;text-align:center;margin:6px 0}
-.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;
-font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .badge.lobby{background:#1e3a8a}.badge.playing{background:#166534}
 .badge.war{background:#7f1d1d}.badge.ended{background:#334155}
-.war-banner{background:#7f1d1d;color:#fff;padding:10px 14px;border-radius:10px;
-margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;font-weight:600}
-.code-box{background:#0d1526;border:1px dashed #3b82f6;padding:14px;border-radius:10px;
-text-align:center;font-family:ui-monospace,monospace;font-size:24px;letter-spacing:6px;
-font-weight:800;color:#93c5fd;margin:10px 0;cursor:pointer;user-select:all}
+.war-banner{background:#7f1d1d;color:#fff;padding:10px 14px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;font-weight:600}
+.code-box{background:#0d1526;border:1px dashed #3b82f6;padding:14px;border-radius:10px;text-align:center;font-family:ui-monospace,monospace;font-size:24px;letter-spacing:6px;font-weight:800;color:#93c5fd;margin:10px 0;cursor:pointer;user-select:all}
 .code-box small{display:block;font-size:11px;letter-spacing:normal;color:var(--muted);margin-top:4px;font-weight:400}
-.hidden{display:none!important}
-.toggle-plane{display:flex;gap:8px;margin:10px 0;align-items:center;padding:8px 12px;
-background:#0d1526;border-radius:8px;border:1px solid var(--line);cursor:pointer;user-select:none}
+.toggle-plane{display:flex;gap:8px;margin:10px 0;align-items:center;padding:8px 12px;background:#0d1526;border-radius:8px;border:1px solid var(--line);cursor:pointer;user-select:none}
 .toggle-plane.active{background:#7c2d12;border-color:#f59e0b;color:#fef3c7}
 .toggle-plane input{margin:0;width:auto;padding:0}
 .siege-info{font-size:12px;color:var(--gold);margin-top:4px}
@@ -102,13 +96,8 @@ import * as topojson from "https://cdn.jsdelivr.net/npm/topojson-client@3/+esm";
 const SUPABASE_URL = "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
 
-// Oturum kalıcılığı (LocalStorage) açıkça belirtildi
 const db = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
 const $ = id => document.getElementById(id);
@@ -118,7 +107,7 @@ let gameState = null;
 let features = [];
 let neighbors = new Map(); 
 let ownership = new Map(); 
-let sieges = new Map(); // YENİ: Kuşatma verileri
+let sieges = new Map(); 
 let planeMode = false;
 let channel = null;
 let zoomBehavior, mapLayer;
@@ -146,8 +135,7 @@ async function signup(email, pw){
 async function login(email, pw){
   const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
   if (error) throw error;
-  session = data.session;
-  afterLogin();
+  session = data.session; afterLogin();
 }
 async function logout(){
   await db.auth.signOut();
@@ -184,16 +172,15 @@ function renderMenu(){
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Oyun Kur</h2>
-      <input id="newGameName" placeholder="Oyun adı (ör. Dünya Odası 1)">
+      <input id="newGameName" placeholder="Oyun adı">
       <input id="newGameMax" type="number" min="2" max="8" value="8" placeholder="Maks oyuncu">
       <button id="createGameBtn">Yeni Oyun Kur</button>
-      <small style="display:block;margin-top:6px">Kurucu olarak otomatik katılırsın.</small>
     </section>
     <section class="panel">
       <h2>Oyun'a Katıl</h2>
-      <input id="joinCode" placeholder="6 haneli oyun kodu" maxlength="6" inputmode="numeric">
+      <input id="joinCode" placeholder="6 haneli kod" maxlength="6" inputmode="numeric">
       <input id="joinUsername" placeholder="Oyuncu adın" maxlength="24">
-      <label class="muted">Ülke / başlangıç noktası</label>
+      <label class="muted">Başlangıç Ülkesi (Haritadan da seçebilirsin)</label>
       <select id="joinCountry"><option value="">Yükleniyor…</option></select>
       <label class="muted">Renk</label>
       <input id="joinColor" type="color" value="#22c55e">
@@ -208,8 +195,7 @@ function renderMenu(){
     const max = Math.max(2, Math.min(8, +$("newGameMax").value || 8));
     const { data, error } = await db.rpc("create_game", { p_name: name, p_max_players: max });
     if (error) throw error;
-    await loadGameState(data.id);
-    enterGame();
+    await loadGameState(data.id); enterGame();
   });
   $("joinGameBtn").onclick = () => withStatus(async () => {
     const code = $("joinCode").value.trim();
@@ -217,13 +203,12 @@ function renderMenu(){
     const country = $("joinCountry").value;
     const color = $("joinColor").value;
     if (code.length !== 6) throw new Error("6 haneli kod gir.");
-    if (uname.length < 2 || uname.length > 24) throw new Error("Oyuncu adı 2-24 karakter.");
-    if (!country || !validColor(color)) throw new Error("Ülke ve renk seç.");
+    if (uname.length < 2) throw new Error("Oyuncu adı çok kısa.");
+    if (!country) throw new Error("Ülke seç.");
     const { data, error } = await db.rpc("join_game_by_code", { p_code: code, p_country: country, p_color: color });
     if (error) throw error;
     await db.from("profiles").upsert({ id: session.user.id, username: uname });
-    await loadGameState(data.id);
-    enterGame();
+    await loadGameState(data.id); enterGame();
   });
   $("logoutBtn").onclick = () => withStatus(logout);
 }
@@ -240,32 +225,24 @@ async function fillCountries(){
       o.value = c.code; o.textContent = `${c.name} (${c.code})`;
       sel.append(o);
     }
-  } catch(e) {
-    sel.innerHTML = '<option value="">Ülke listesi yüklenemedi</option>';
-  }
+  } catch(e) { sel.innerHTML = '<option value="">Hata</option>'; }
 }
 
 async function loadGameState(gameId){
   const { data, error } = await db.rpc("get_game_state", { p_game_id: gameId });
   if (error) throw error;
-  gameState = data;
-  syncOwnership();
+  gameState = data; syncOwnership();
 }
 
 function syncOwnership(){
   ownership.clear();
   for (const o of gameState.ownership) ownership.set(o.region_id, o);
-  
   sieges.clear();
-  if (gameState.sieges) {
-    for (const s of gameState.sieges) sieges.set(s.region_id, s);
-  }
+  if (gameState.sieges) { for (const s of gameState.sieges) sieges.set(s.region_id, s); }
 }
 
 function enterGame(){
-  subscribeRealtime();
-  renderSidePanel();
-  repaintMap();
+  subscribeRealtime(); renderSidePanel(); repaintMap();
   $("subTitle").textContent = `${gameState.game.name} • Kod: ${gameState.game.code}`;
 }
 
@@ -280,9 +257,7 @@ function subscribeRealtime(){
     .subscribe();
 }
 async function refresh(){
-  await loadGameState(gameState.game.id);
-  renderSidePanel();
-  repaintMap();
+  await loadGameState(gameState.game.id); renderSidePanel(); repaintMap();
 }
 
 // ---------- KENAR PANEL ----------
@@ -300,8 +275,7 @@ function playerListHTML(){
     const isTurn = p.user_id === gameState.game.current_turn_user_id;
     const mine = p.user_id === session.user.id;
     const regionCount = gameState.ownership.filter(o => o.owner_user_id === p.user_id).length;
-    const defeated = gameState.game.status === "ended" && p.user_id !== gameState.game.winner_id;
-    return `<div class="player ${isTurn?'turn':''} ${defeated?'defeated':''}">
+    return `<div class="player ${isTurn?'turn':''}">
       <span class="swatch" style="background:${p.color}"></span>
       <div style="flex:1;min-width:0">
         <div><strong>${escapeHTML(p.username||'Oyuncu')}</strong> ${mine?'<small>(sen)</small>':''}</div>
@@ -322,7 +296,7 @@ function renderLobby(){
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Lobi <span class="badge lobby">bekliyor</span></h2>
-      <div class="code-box" id="copyCode">${g.code}<small>Bu kodu arkadaşlarına gönder</small></div>
+      <div class="code-box" id="copyCode">${g.code}<small>Kodu arkadaşlarına gönder</small></div>
       <small>${gameState.players.length} / ${g.max_players} oyuncu</small>
     </section>
     <section class="panel">
@@ -331,10 +305,7 @@ function renderLobby(){
       <button id="rollTurnBtn" ${myTurnDice?'disabled':''}>Zar at (sıra için)</button>
       ${isCreator ? `<button id="startBtn" style="margin-top:10px" ${allRolled?'':'disabled'} class="success">Oyunu Başlat</button>` : `<small>Kurucu bekleniyor…</small>`}
     </section>
-    <section class="panel">
-      <h2>Oyuncular</h2>
-      <div id="players">${playerListHTML()}</div>
-    </section>
+    <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
   document.getElementById("copyCode").onclick = async () => {
@@ -343,14 +314,12 @@ function renderLobby(){
   };
   $("rollTurnBtn").onclick = () => withStatus(async () => {
     const { error } = await db.rpc("roll_turn_dice", { p_game_id: gameState.game.id });
-    if (error) throw error;
-    await refresh();
+    if (error) throw error; await refresh();
   });
   if (isCreator) {
     $("startBtn").onclick = () => withStatus(async () => {
       const { error } = await db.rpc("finalize_turn_order", { p_game_id: gameState.game.id });
-      if (error) throw error;
-      await refresh();
+      if (error) throw error; await refresh();
     });
   }
   $("logoutBtn").onclick = () => withStatus(logout);
@@ -386,32 +355,25 @@ function renderPlaying(){
       </select>
       <button id="declareWarBtn" class="danger" ${!myTurn || gameState.war ? 'disabled':''}>⚔️ Savaş İlan Et</button>
     </section>
-    <section class="panel">
-      <h2>Oyuncular</h2>
-      <div id="players">${playerListHTML()}</div>
-    </section>
+    <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
   if (myTurn && diceLeft === 0) {
     $("rollMoveBtn").onclick = () => withStatus(async () => {
       const { error } = await db.rpc("roll_move_dice", { p_game_id: g.id });
-      if (error) throw error;
-      await refresh();
+      if (error) throw error; await refresh();
     });
   }
   $("planeToggle").onclick = (e) => {
     if (e.target.tagName !== 'INPUT') e.preventDefault();
-    planeMode = !planeMode;
-    renderSidePanel();
-    updateMapHints();
+    planeMode = !planeMode; renderSidePanel(); updateMapHints();
   };
   $("declareWarBtn").onclick = () => withStatus(async () => {
     const target = $("targetPlayer").value;
     if (!target) throw new Error("Rakip seç");
-    if (!confirm("Savaş ilan edilsin mi? Tüm oyun bu savaşa odaklanır.")) return;
+    if (!confirm("Savaş ilan edilsin mi?")) return;
     const { error } = await db.rpc("declare_war", { p_game_id: g.id, p_defender_id: target });
-    if (error) throw error;
-    await refresh();
+    if (error) throw error; await refresh();
   });
   $("logoutBtn").onclick = () => withStatus(logout);
   updateMapHints();
@@ -442,24 +404,20 @@ function renderWar(){
     <section class="panel">
       <h2>Savaşı Bitir</h2>
       <button id="endWarBtn" class="secondary" ${iWantEnd?'disabled':''}>${iWantEnd ? 'Onay verildi, bekleniyor…' : 'Savaşı Bitir'}</button>
+      <small class="muted">(Her iki taraf da basarsa savaş biter)</small>
     </section>
-    <section class="panel">
-      <h2>Oyuncular</h2>
-      <div id="players">${playerListHTML()}</div>
-    </section>
+    <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
   if (myTurn && diceLeft === 0) {
     $("rollWarBtn").onclick = () => withStatus(async () => {
       const { error } = await db.rpc("roll_war_dice", { p_war_id: w.id });
-      if (error) throw error;
-      await refresh();
+      if (error) throw error; await refresh();
     });
   }
   $("endWarBtn").onclick = () => withStatus(async () => {
     const { error } = await db.rpc("request_end_war", { p_war_id: w.id });
-    if (error) throw error;
-    await refresh();
+    if (error) throw error; await refresh();
   });
   $("logoutBtn").onclick = () => withStatus(logout);
   updateMapHints();
@@ -471,45 +429,31 @@ function renderEnded(){
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Oyun Bitti <span class="badge ended">bitti</span></h2>
-      <div style="font-size:22px;text-align:center;margin:16px 0">
-        🏆 <strong>${escapeHTML(winner?.username||'Kazanan')}</strong>
-      </div>
+      <div style="font-size:22px;text-align:center;margin:16px 0">🏆 <strong>${escapeHTML(winner?.username||'Kazanan')}</strong></div>
       <button onclick="location.reload()">Yeni oyun kur</button>
     </section>`;
   updateMapHints();
 }
 
-// ---------- HARİTA (WORLD-ATLAS) ----------
+// ---------- HARİTA ----------
 async function loadMap(){
   $("mapStatus").textContent = "Dünya haritası yükleniyor…";
   try {
     const response = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
-    if (!response.ok) throw new Error("Harita verisi indirilemedi.");
     const world = await response.json();
-    
     const countries = topojson.feature(world, world.objects.countries).features;
     
     features = countries.map(f => {
         f.properties = f.properties || {};
-        f.properties.region_id = f.id;
+        f.properties.region_id = String(f.id);
         f.properties.region_name = f.properties.name || "Bilinmeyen";
         return f;
     });
-
     $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " ülke";
-
     drawMap(world);
     $("mapStatus").textContent = "Harita çizildi, komşuluklar hesaplanıyor...";
-
-    setTimeout(() => {
-      buildNeighbors();
-      $("mapStatus").textContent = "Harita hazır (Tüm sistemler aktif)";
-    }, 100);
-
-  } catch(e) {
-    $("mapStatus").textContent = "Harita yükleme hatası";
-    throw e;
-  }
+    setTimeout(() => { buildNeighbors(); $("mapStatus").textContent = "Harita hazır"; }, 100);
+  } catch(e) { $("mapStatus").textContent = "Harita yükleme hatası"; throw e; }
 }
 
 function regionId(f){
@@ -523,30 +467,18 @@ function buildNeighbors(){
   const addCoords = (coords, rid) => {
     if (typeof coords[0] === 'number') {
       const key = coords[0].toFixed(2) + "," + coords[1].toFixed(2);
-      let set = vertexMap.get(key);
-      if (!set) { set = new Set(); vertexMap.set(key, set); }
-      set.add(rid);
-    } else {
-      for (let i = 0; i < coords.length; i++) addCoords(coords[i], rid);
-    }
+      let set = vertexMap.get(key); if (!set) { set = new Set(); vertexMap.set(key, set); } set.add(rid);
+    } else { for (let i = 0; i < coords.length; i++) addCoords(coords[i], rid); }
   };
-
-  for (const f of features) {
-    const rid = regionId(f);
-    if (!rid) continue;
-    addCoords(f.geometry.coordinates, rid);
-  }
-
+  for (const f of features) { const rid = regionId(f); if (rid) addCoords(f.geometry.coordinates, rid); }
   for (const rids of vertexMap.values()) {
     if (rids.size > 1) {
       const arr = Array.from(rids);
       for (let i = 0; i < arr.length; i++) {
         for (let j = i + 1; j < arr.length; j++) {
           const a = arr[i], b = arr[j];
-          if (!neighbors.has(a)) neighbors.set(a, new Set());
-          if (!neighbors.has(b)) neighbors.set(b, new Set());
-          neighbors.get(a).add(b);
-          neighbors.get(b).add(a);
+          if (!neighbors.has(a)) neighbors.set(a, new Set()); if (!neighbors.has(b)) neighbors.set(b, new Set());
+          neighbors.get(a).add(b); neighbors.get(b).add(a);
         }
       }
     }
@@ -554,66 +486,47 @@ function buildNeighbors(){
 }
 
 function drawMap(world){
-  const svg = d3.select("#map");
-  svg.selectAll("*").remove();
-  
+  const svg = d3.select("#map"); svg.selectAll("*").remove();
   const projection = d3.geoMercator().fitExtent([[10, 10], [950, 550]], { type: "Sphere" }); 
   const path = d3.geoPath(projection);
-
   mapLayer = svg.append("g");
   
-  // Ülkeleri çiz (Sayılar/ID'ler kaldırıldı, sadece temiz harita)
   mapLayer.selectAll("path")
-    .data(features)
-    .join("path")
-    .attr("class", "region")
-    .attr("data-region-id", f => regionId(f))
-    .attr("fill", f => regionColor(f))
-    .attr("fill-opacity", f => regionOpacity(f))
-    .attr("d", path)
+    .data(features).join("path").attr("class", "region").attr("data-region-id", f => regionId(f))
+    .attr("fill", f => regionColor(f)).attr("fill-opacity", f => regionOpacity(f)).attr("d", path)
     .on("click", (ev, f) => onRegionClick(f))
-    .append("title")
-    .text(f => f.properties.region_name || "Ülke");
+    .append("title").text(f => f.properties.region_name || "Ülke");
 
-  zoomBehavior = d3.zoom().scaleExtent([1, 14])
-    .on("zoom", e => mapLayer.attr("transform", e.transform));
+  zoomBehavior = d3.zoom().scaleExtent([1, 14]).on("zoom", e => mapLayer.attr("transform", e.transform));
   svg.call(zoomBehavior);
 }
 
 function regionColor(f){
   const id = regionId(f);
   const o = ownership.get(id);
-  if (o) return o.owner_color; // Sahibi varsa tam rengi
-  
+  if (o) return o.owner_color;
   const s = sieges.get(id);
-  if (s) return s.color; // Kuşatma varsa kuşatanın rengi (yarı saydam)
-
-  return "#26354a"; // Boş ülke
+  if (s) return s.color;
+  return "#26354a";
 }
 
 function regionOpacity(f){
   const id = regionId(f);
-  if (ownership.has(id)) return 1; // Sahipli ülke tam opak
-  if (sieges.has(id)) return 0.5; // Kuşatma altındaki ülke yarı saydam
+  if (ownership.has(id)) return 1;
+  if (sieges.has(id)) return 0.5;
   return 1;
 }
 
 function repaintMap(){
   if (!mapLayer) return;
-  mapLayer.selectAll("path.region")
-    .attr("fill", f => regionColor(f))
-    .attr("fill-opacity", f => regionOpacity(f));
+  mapLayer.selectAll("path.region").attr("fill", f => regionColor(f)).attr("fill-opacity", f => regionOpacity(f));
 }
 
 function updateMapHints(){
   const phase = curPhase();
-  if (phase === "war") {
-    $("mapHint").textContent = "Düşman bölgesine tıklayarak füze at.";
-  } else if (planeMode) {
-    $("mapHint").textContent = "✈️ Uçak modu açık — istediğin bölgeye tıkla.";
-  } else {
-    $("mapHint").textContent = "Kendi bölgene komşu bir bölgeye tıklayarak genişle. (Her ülke 6 puan gerektirir)";
-  }
+  if (phase === "war") $("mapHint").textContent = "Düşman bölgesine tıklayarak füze at. (Karşı tarafın zarı otomatik atılır)";
+  else if (planeMode) $("mapHint").textContent = "✈️ Uçak modu açık — istediğin bölgeye tıkla.";
+  else $("mapHint").textContent = "Kendi bölgene komşu bir bölgeye tıklayarak genişle. (Her ülke 6 puan)";
 }
 
 async function onRegionClick(f){
@@ -621,91 +534,65 @@ async function onRegionClick(f){
   const phase = curPhase();
   const gid = gameState.game.id;
   const rid = regionId(f);
-  if (!rid) { msg("Bu bölgenin kimliği yok."); return; }
 
   if (phase === "war") {
     const w = gameState.war;
-    if (!w) return;
-    if (w.current_turn_user_id !== session.user.id) { msg("Sıra sende değil."); return; }
+    if (!w || w.current_turn_user_id !== session.user.id) { msg("Sıra sende değil."); return; }
     const own = ownership.get(rid);
     const enemyId = session.user.id === w.attacker_id ? w.defender_id : w.attacker_id;
-    if (!own || own.owner_user_id !== enemyId) {
-      msg("Sadece düşman bölgelerine füze atabilirsin.");
-      return;
-    }
+    if (!own || own.owner_user_id !== enemyId) { msg("Sadece düşman bölgelerine saldırabilirsin."); return; }
     if (myDiceLeft() <= 0) { msg("Önce savaş zarı at."); return; }
-    if (!confirm("Füze atılsın mı?")) return;
+    
     try {
       const { data, error } = await db.rpc("fire_missile", { p_war_id: w.id, p_target_region_id: rid });
       if (error) throw error;
-      if (data.war_over) msg("💥 Savaş bitti!");
-      else msg("💥 Hedef alındı.");
+      
+      if (data.conquered) msg(`💥 BÖLGE DÜŞTÜ! (Sen: ${data.attacker_roll} - O: ${data.defender_roll})`);
+      else msg(`🛡️ Savunma yaptı! (Sen: ${data.attacker_roll} - O: ${data.defender_roll}). Kalan Can: ${data.new_hp}`);
+      
+      if (data.war_over) msg("🏆 SAVAŞ KAZANILDI! Rakibin hiç bölgesi kalmadı.");
       await refresh();
     } catch (e) { msg("Hata: " + e.message); }
     return;
   }
 
-  if (phase !== "playing") { msg("Şu an bölge alınamaz."); return; }
-  if (!iAmTurn()) { msg("Sıra sende değil."); return; }
-  if (myDiceLeft() <= 0) { msg("Önce zar at."); return; }
-  if (ownership.has(rid)) { msg("Bu bölge zaten alınmış."); return; }
+  if (phase !== "playing" || !iAmTurn() || myDiceLeft() <= 0) { msg("Hamle yapılamaz."); return; }
+  if (ownership.has(rid)) { msg("Bölge zaten alınmış."); return; }
 
   if (!planeMode) {
     const iHaveAny = [...ownership.values()].some(o => o.owner_user_id === session.user.id);
     if (iHaveAny) {
       const adj = neighbors.get(rid) || new Set();
       const ok = [...adj].some(a => ownership.get(a)?.owner_user_id === session.user.id);
-      if (!ok) {
-        msg("Bu bölge komşu değil. 'Uçak modu'nu dene.");
-        return;
-      }
+      if (!ok) { msg("Komşu değil. 'Uçak modu'nu dene."); return; }
     }
   }
 
   try {
     const adjArr = [...(neighbors.get(rid) || [])];
-    const { data, error } = await db.rpc("claim_region_v2", {
-      p_game_id: gid, p_region_id: rid, p_plane: planeMode, p_adjacent_ids: adjArr
-    });
+    const { data, error } = await db.rpc("claim_region_v2", { p_game_id: gid, p_region_id: rid, p_plane: planeMode, p_adjacent_ids: adjArr });
     if (error) throw error;
-    
-    if (data.conquered) {
-      msg(`✅ Bölge tamamen alındı! Kalan hamle: ${data.remaining}`);
-    } else {
-      msg(`⚔️ Kuşatma başladı/Devam ediyor. ${data.moves_used} puan harcandı. Kalan hamle: ${data.remaining}`);
-    }
+    if (data.conquered) msg(`✅ Bölge tamamen alındı! Kalan: ${data.remaining}`);
+    else msg(`⚔️ Kuşatma başladı. ${data.moves_used} puan harcandı. Kalan: ${data.remaining}`);
     await refresh();
-  } catch (e) {
-    msg("Hata: " + e.message);
-  }
+  } catch (e) { msg("Hata: " + e.message); }
 }
 
 $("zoomIn").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1.4);
 $("zoomOut").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1/1.4);
 $("resetZoom").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.transform, d3.zoomIdentity);
 
-async function withStatus(fn){
-  try { await fn(); } catch(e) { msg(e.message || String(e)); console.error(e); }
-}
+async function withStatus(fn){ try { await fn(); } catch(e) { msg(e.message || String(e)); console.error(e); } }
 
 async function start(){
   await loadMap();
-  // Oturum kontrolü (LocalStorage sayesinde sekme yenilense bile hatırlar)
   const { data } = await db.auth.getSession();
   session = data.session;
-  if (session) {
-    $("userState").textContent = "Giriş yapıldı";
-    await afterLogin();
-  } else {
-    $("userState").textContent = "Oturum kapalı";
-    renderAuth();
-  }
+  if (session) { $("userState").textContent = "Giriş yapıldı"; await afterLogin(); }
+  else { $("userState").textContent = "Oturum kapalı"; renderAuth(); }
   updateMapHints();
 }
-start().catch(e => {
-  $("mapStatus").textContent = "Yükleme başarısız";
-  msg(e.message || String(e));
-});
+start().catch(e => { $("mapStatus").textContent = "Yükleme başarısız"; msg(e.message); });
 </script>
 </body>
 </html>
