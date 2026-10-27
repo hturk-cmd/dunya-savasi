@@ -124,7 +124,6 @@ let pollTimer = null;
 
 function msg(t){ $("status").textContent = t; }
 function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
-function iAmTurn(){ return gameState?.game?.current_turn_user_id === session?.user?.id; }
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function isOnline(p){
   if (!p?.last_seen_at) return false;
@@ -139,19 +138,10 @@ function curPhase(){
   return s || "playing";
 }
 
-function myDiceLeftFor(purpose, warId){
-  if (!gameState) return 0;
-  const uid = session?.user?.id;
-  const d = gameState.dice.filter(x =>
-    x.user_id === uid && x.purpose === purpose && x.used < x.value &&
-    (purpose !== "war" || x.war_id === warId)
-  );
-  return d.reduce((s,x)=>s+(x.value-x.used),0);
-}
 function myDiceLeft(){
-  const phase = curPhase();
-  if (phase === "war") return myDiceLeftFor("war", gameState.war?.id);
-  return myDiceLeftFor("move");
+  if (!gameState) return 0;
+  const me = findPlayer(session.user.id);
+  return me ? me.current_moves : 0;
 }
 
 // ---------- HEARTBEAT & POLLING ----------
@@ -166,7 +156,7 @@ function startHeartbeat(gameId){
   document.addEventListener("visibilitychange", onVisChange);
 
   pollTimer = setInterval(() => {
-    if (gameState && (gameState.game.status === 'lobby' || gameState.war)) {
+    if (gameState && (gameState.game.status === 'lobby' || gameState.game.status === 'rolling' || gameState.war)) {
       refresh();
     }
   }, 5000);
@@ -411,6 +401,7 @@ function renderSidePanel(){
   if (g.status === "lobby") return renderLobby();
   if (g.status === "ended") return renderEnded();
   if (gameState.war) return renderWar();
+  if (g.status === "rolling") return renderRolling();
   return renderPlaying();
 }
 
@@ -435,8 +426,6 @@ function playerListHTML(){
 
 function renderLobby(){
   const g = gameState.game;
-  const myTurnDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "turn_order");
-  const allRolled = gameState.players.every(p => gameState.dice.some(d => d.user_id === p.user_id && d.purpose === "turn_order"));
   const isCreator = g.creator_id === session.user.id;
   const onlineOk = allOnline();
 
@@ -453,14 +442,11 @@ function renderLobby(){
       ` : ''}
     </section>
     <section class="panel">
-      <h2>Sıra Zarı</h2>
-      <div id="dice">${myTurnDice ? "🎲 "+myTurnDice.value : "—"}</div>
-      <button id="rollTurnBtn" ${myTurnDice?'disabled':''}>Zar at (sıra için)</button>
+      <h2>Oyunu Başlat</h2>
       ${isCreator ? `
-        <button id="startBtn" style="margin-top:10px" ${allRolled && onlineOk ? '' : 'disabled'} class="success">Oyunu Başlat</button>
-        ${!onlineOk ? `<small class="muted" style="display:block;margin-top:6px">⚠️ Tüm oyuncular bağlı olmalı</small>` : ''}
-        ${onlineOk && !allRolled ? `<small class="muted" style="display:block;margin-top:6px">Herkes zar atmalı</small>` : ''}
-      ` : `<small>Kurucu bekleniyor…</small>`}
+        <button id="startBtn" ${onlineOk ? '' : 'disabled'} class="success">Oyunu Başlat</button>
+        ${!onlineOk ? `<small class="muted" style="display:block;margin-top:6px">⚠️ Tüm oyuncular bağlı olmalı</small>` : `<small class="muted" style="display:block;margin-top:6px">Herkes hazır olduğunda başlat.</small>`}
+      ` : `<small>Kurucunun başlatması bekleniyor…</small>`}
     </section>
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <section class="panel" style="display:flex; gap:8px">
@@ -472,13 +458,10 @@ function renderLobby(){
     try { await navigator.clipboard.writeText(gameState.game.code); msg("Kod kopyalandı: " + gameState.game.code); }
     catch { msg("Kod: " + gameState.game.code); }
   };
-  $("rollTurnBtn").onclick = () => withStatus(async () => {
-    const { error } = await db.rpc("roll_turn_dice", { p_game_id: gameState.game.id });
-    if (error) throw error; await refresh();
-  });
+  
   if (isCreator) {
     $("startBtn").onclick = () => withStatus(async () => {
-      const { error } = await db.rpc("finalize_turn_order", { p_game_id: gameState.game.id });
+      const { error } = await db.rpc("start_game", { p_game_id: gameState.game.id });
       if (error) throw error; await refresh();
     });
     if ($("publicToggle")) {
@@ -502,25 +485,59 @@ function renderLobby(){
   $("logoutBtn").onclick = () => withStatus(logout);
 }
 
+// TUR BAŞLANGICI (ZAR ATMA)
+function renderRolling(){
+  const g = gameState.game;
+  const onlineOk = allOnline();
+  const myRoll = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "round_dice");
+  
+  $("sidePanel").innerHTML = `
+    ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil.</div>` : ''}
+    <section class="panel">
+      <h2>${escapeHTML(g.name)} <span class="badge lobby" style="background:#7c2d12;color:#fef3c7">Tur ${g.round_number}</span></h2>
+      <small>Kod: ${g.code}</small>
+    </section>
+    <section class="panel">
+      <h2>Tur Zarı</h2>
+      <p class="muted">Herkesin zar atması bekleniyor. En büyük atan başlar.</p>
+      <div id="dice">${myRoll ? "🎲 "+myRoll.value : "—"}</div>
+      <button id="rollRoundBtn" class="danger" ${myRoll || !onlineOk ? 'disabled':''}>${myRoll ? 'Zar atıldı, bekleniyor…' : 'Zar At'}</button>
+    </section>
+    <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
+    <button id="logoutBtn" class="secondary">Çıkış</button>`;
+
+  if (!myRoll && onlineOk) {
+    $("rollRoundBtn").onclick = () => withStatus(async () => {
+      const { data, error } = await db.rpc("roll_round_dice", { p_game_id: g.id });
+      if (error) throw error;
+      msg(data.all_rolled ? "Herkes zar attı, sıralama belirlendi!" : `Zarın: ${data.roll || 'atıldı'}. Diğerleri bekleniyor.`);
+      await refresh();
+    });
+  }
+  $("logoutBtn").onclick = () => withStatus(logout);
+  updateMapHints();
+}
+
+// HAMLE AŞAMASI (BÖLGE ALMA)
 function renderPlaying(){
   const g = gameState.game;
   const myTurn = iAmTurn();
   const diceLeft = myDiceLeft();
-  const myDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "move" && d.used < d.value);
   const onlineOk = allOnline();
 
   $("sidePanel").innerHTML = `
-    ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil. Bağlantılar bekleniyor…</div>` : ''}
+    ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil.</div>` : ''}
     <section class="panel">
-      <h2>${escapeHTML(g.name)} <span class="badge playing">oynanıyor</span></h2>
+      <h2>${escapeHTML(g.name)} <span class="badge playing">Tur ${g.round_number}</span></h2>
       <small>Kod: ${g.code}</small>
     </section>
     <section class="panel">
-      <h2>Zar ve hamle</h2>
-      <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
-      <div class="muted">${myTurn ? `Kalan hamle: ${diceLeft}` : "Sıra sende değil"}</div>
+      <h2>Hamle Aşaması</h2>
+      <div style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:10px; color:${myTurn ? 'var(--gold)' : 'var(--muted)'}">
+        ${myTurn ? "Sıra Sende!" : "Sıra: " + escapeHTML(findPlayer(g.current_turn_user_id)?.username || '?')}
+      </div>
+      <div class="muted">${myTurn ? `Kalan hamle puanın: ${diceLeft}` : "Rakip hamle yapıyor..."}</div>
       <div class="siege-info">Ülke almak için toplam 6 puan gerekir.</div>
-      <button id="rollMoveBtn" ${!myTurn || diceLeft>0 || !onlineOk ? 'disabled': ''}>Zar at</button>
       <label class="toggle-plane ${planeMode?'active':''}" id="planeToggle">
         <input type="checkbox" id="planeCheckbox" ${planeMode?'checked':''}>
         <span>✈️ Uçak modu (istediğin bölgeye uç)</span>
@@ -537,12 +554,6 @@ function renderPlaying(){
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
-  if (myTurn && diceLeft === 0 && onlineOk) {
-    $("rollMoveBtn").onclick = () => withStatus(async () => {
-      const { error } = await db.rpc("roll_move_dice", { p_game_id: g.id });
-      if (error) throw error; await refresh();
-    });
-  }
   $("planeToggle").onclick = (e) => {
     if (e.target.tagName !== 'INPUT') e.preventDefault();
     planeMode = !planeMode; renderSidePanel(); updateMapHints();
@@ -558,6 +569,7 @@ function renderPlaying(){
   updateMapHints();
 }
 
+// SAVAŞ EKRANI
 function renderWar(){
   const g = gameState.game;
   const w = gameState.war;
@@ -566,7 +578,6 @@ function renderWar(){
   const iAmAttacker = w.attacker_id === session.user.id;
   const iWantEnd = iAmAttacker ? w.attacker_wants_end : w.defender_wants_end;
   
-  // Savaşta sadece savaşanların online olması yeterli
   const onlineOk = isOnline(attacker) && isOnline(defender);
 
   if (!w.order_set) {
@@ -619,11 +630,7 @@ function renderWar(){
   }
 
   const myTurn = w.current_turn_user_id === session.user.id;
-  const diceLeft = myDiceLeft();
-  const myDice = gameState.dice.find(d =>
-    d.user_id === session.user.id && d.purpose === "war" &&
-    d.used < d.value && d.war_id === w.id
-  );
+  const diceLeft = w.current_moves;
 
   $("sidePanel").innerHTML = `
     ${!onlineOk ? `<div class="warn-banner">⚠️ Savaşan oyunculardan biri çevrimdışı.</div>` : ''}
@@ -634,9 +641,9 @@ function renderWar(){
     <section class="panel">
       <h2>Savaş Hamlesi</h2>
       <div style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:10px; color:${myTurn ? 'var(--gold)' : 'var(--muted)'}">
-        ${myTurn ? "Sıra Sende!" : "Sıra: " + escapeHTML(findPlayer(w.current_turn_user_id)?.username)}
+        ${myTurn ? "Sıra Sende!" : "Sıra: " + escapeHTML(findPlayer(w.current_turn_user_id)?.username || '?')}
       </div>
-      <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
+      <div id="dice">${myTurn && diceLeft > 0 ? "🎲 "+w.current_dice_value : "—"}</div>
       <div class="muted">${myTurn ? (diceLeft>0 ? `Kalan füze hakkı: ${diceLeft}` : 'Zar atmalısın') : "Rakip bekleniyor..."}</div>
       <button id="rollWarBtn" class="danger" ${!myTurn || diceLeft>0 || !onlineOk ? 'disabled':''}>Savaş Zarı At</button>
     </section>
@@ -668,7 +675,7 @@ function renderEnded(){
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Oyun Bitti <span class="badge ended">bitti</span></h2>
-      <div style="font-size:22px;text-align:center;margin:16px 0">🏆 <strong>${escapeHTML(winner?.username||'Kazan')}</strong></div>
+      <div style="font-size:22px;text-align:center;margin:16px 0">🏆 <strong>${escapeHTML(winner?.username||'Kazanan')}</strong></div>
       <button onclick="location.reload()">Yeni oyun kur</button>
     </section>`;
   updateMapHints();
@@ -800,7 +807,7 @@ function repaintSiegeLabels(){
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
       .attr("fill", "#fff")
-      .attr("font-size", (6 / currentK) + "px") // 6 yapıldı (daha küçük)
+      .attr("font-size", (6 / currentK) + "px")
       .attr("paint-order", "stroke")
       .attr("stroke", "#000")
       .attr("stroke-width", (1.2 / currentK))
@@ -814,6 +821,7 @@ function repaintSiegeLabels(){
 function updateMapHints(){
   const phase = curPhase();
   if (phase === "war") $("mapHint").textContent = "Düşman bölgesine tıklayarak füze at. (Karşı tarafın zarı otomatik atılır)";
+  else if (phase === "rolling") $("mapHint").textContent = "Tur başlangıcı. Herkesin zar atması bekleniyor...";
   else if (planeMode) $("mapHint").textContent = "✈️ Uçak modu açık — istediğin bölgeye tıkla.";
   else $("mapHint").textContent = "Kendi bölgene komşu bir bölgeye tıklayarak genişle. (Her ülke 6 puan)";
 }
@@ -833,7 +841,7 @@ async function onRegionClick(f){
     
     if (!own) { msg("Hedef bölgenin sahibi yok."); return; }
     if (own.owner_user_id !== enemyId) { msg("Sadece düşman bölgelerine saldırabilirsin."); return; }
-    if (myDiceLeft() <= 0) { msg("Önce savaş zarı at."); return; }
+    if (w.current_moves <= 0) { msg("Önce savaş zarı at."); return; }
 
     try {
       const { data, error } = await db.rpc("fire_missile", { p_war_id: w.id, p_target_region_id: rid });
@@ -860,10 +868,11 @@ async function onRegionClick(f){
 
   try {
     const adjArr = [...(neighbors.get(rid) || [])];
-    const { data, error } = await db.rpc("claim_region_v2", { p_game_id: gid, p_region_id: rid, p_plane: planeMode, p_adjacent_ids: adjArr });
+    const { data, error } = await db.rpc("claim_region_v3", { p_game_id: gid, p_region_id: rid, p_plane: planeMode, p_adjacent_ids: adjArr });
     if (error) throw error;
-    if (data.conquered) msg(`✅ Bölge tamamen alındı! Kalan: ${data.remaining}`);
-    else msg(`⚔️ Kuşatma başladı. ${data.moves_used} puan harcandı. Kalan: ${data.remaining}`);
+    if (data.round_over) msg(`✅ Tur bitti! Yeni turlar için zar atın.`);
+    else if (data.conquered) msg(`✅ Bölge tamamen alındı! Kalan Hamle: ${data.remaining}`);
+    else msg(`⚔️ Kuşatma başladı. ${data.moves_used} puan harcandı. Kalan Hamle: ${data.remaining}`);
     await refresh();
   } catch (e) { msg("Hata: " + e.message); }
 }
