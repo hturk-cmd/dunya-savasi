@@ -127,8 +127,8 @@
 
   // --- Bağlantı: önce sunucu ortam değişkenleri, olmazsa elle giriş ---
   // >>> Supabase bilgilerini buraya yaz (publishable/anon key herkese açık olabilir, secret/service_role ASLA) <<<
-  const SUPABASE_URL = "";
-  const SUPABASE_KEY = "";
+  const SUPABASE_URL = "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
 
   async function getConfig() {
     if (SUPABASE_URL && SUPABASE_KEY) return { url: SUPABASE_URL, key: SUPABASE_KEY };
