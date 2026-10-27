@@ -111,7 +111,6 @@ let planeMode = false;
 let channel = null;
 let zoomBehavior, mapLayer;
 
-// ---------- yardımcılar ----------
 function msg(t){ $("status").textContent = t; }
 function validColor(c){ return /^#[0-9a-fA-F]{6}$/.test(c); }
 function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
@@ -361,7 +360,7 @@ function renderPlaying(){
       <h2>Zar ve hamle</h2>
       <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
       <div class="muted">${myTurn ? `Kalan hamle: ${diceLeft}` : "Sıra sende değil"}</div>
-      <button id="rollMoveBtn" ${!myTurn || diceLeft>0 ? 'disabled' : ''}>Zar at</button>
+      <button id="rollMoveBtn" ${!myTurn || diceLeft>0 ? 'disabled': ''}>Zar at</button>
       <label class="toggle-plane ${planeMode?'active':''}" id="planeToggle">
         <input type="checkbox" id="planeCheckbox" ${planeMode?'checked':''}>
         <span>✈️ Uçak modu (istediğin bölgeye uç)</span>
@@ -476,14 +475,14 @@ async function loadMap(){
     if (!r.ok) throw new Error("regions.geojson yüklenemedi.");
     const data = await r.json();
     
-    features = data.features.filter(f => f.geometry);
+    // ANTARKTIKA'YI FİLTRELE (Haritayı bozuyor)
+    features = data.features.filter(f => f.geometry && f.properties?.country_code !== "ATA");
+    
     $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " bölge";
 
-    // Önce haritayı çiz
     drawMap(data);
     $("mapStatus").textContent = "Harita çizildi, komşuluklar hesaplanıyor...";
 
-    // Sonra arka planda komşulukları hesapla
     setTimeout(() => {
       buildNeighbors();
       $("mapStatus").textContent = "Harita hazır (Tüm sistemler aktif)";
@@ -500,7 +499,6 @@ function regionId(f){
   return String(p.region_id || p.shapeID || p.shapeISO || "");
 }
 
-// Hızlı komşuluk hesaplayıcı
 function buildNeighbors(){
   neighbors.clear();
   const vertexMap = new Map();
@@ -541,8 +539,7 @@ function drawMap(data){
   const svg = d3.select("#map");
   svg.selectAll("*").remove();
   
-  // KRİTİK DÜZELTME: Sadece veriye değil, tüm Dünya (Sphere) boyutuna göre ölçekle!
-  // Böylece Maldivler veya Antarktika yüzünden harita bozulmaz.
+  // TAM ORTALANMIŞ PROJEKSİYON (Antarktika çıkarıldığı için artık sorunsuz)
   const projection = d3.geoMercator()
     .fitExtent([[10, 10], [950, 550]], { type: "Sphere" }); 
     
@@ -550,7 +547,6 @@ function drawMap(data){
 
   mapLayer = svg.append("g");
   
-  // Bölgeleri çiz
   mapLayer.selectAll("path")
     .data(features)
     .join("path")
@@ -562,7 +558,6 @@ function drawMap(data){
     .append("title")
     .text(f => (f.properties?.region_name || f.properties?.shapeName || f.properties?.name || "Bölge"));
 
-  // Ülke kodlarını (isimlerini) küçük şekilde yazdır
   const countryGroups = d3.group(features, f => f.properties?.country_code || "");
   const labelLayer = mapLayer.append("g").attr("class", "labels");
   
@@ -583,9 +578,9 @@ function drawMap(data){
       .attr("x", sumX / validCount)
       .attr("y", sumY / validCount)
       .attr("text-anchor", "middle")
-      .attr("font-size", "7px") // Çok küçük
-      .attr("fill", "#64748b") // Silik gri/mavi
-      .attr("pointer-events", "none") // Tıklamayı engellemez
+      .attr("font-size", "7px")
+      .attr("fill", "#64748b")
+      .attr("pointer-events", "none")
       .attr("opacity", 0.8)
       .text(code);
   }
@@ -676,12 +671,10 @@ async function onRegionClick(f){
   }
 }
 
-// ---------- HARİTA TOOLS ----------
 $("zoomIn").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1.4);
 $("zoomOut").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1/1.4);
 $("resetZoom").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.transform, d3.zoomIdentity);
 
-// ---------- BAŞLAT ----------
 async function withStatus(fn){
   try { await fn(); } catch(e) { msg(e.message || String(e)); console.error(e); }
 }
