@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dünya Hâkimiyeti — Atlas Harita Prototip</title>
+  <title>Dünya Hâkimiyeti — Gerçek Dünya Haritası</title>
   <style>
     :root { color-scheme: dark; --bg:#0b1020; --panel:#141c2e; --line:#2b3852; --text:#eef3ff; --muted:#9aa9c5; --accent:#4ade80; --danger:#f87171; }
     * { box-sizing:border-box; }
@@ -27,9 +27,9 @@
     .status.ok { border-color:#286b4a; } .status.err { border-color:var(--danger); color:#fecaca; }
     .wide { grid-column:1/-1; }
     
-    /* Detaylı Atlas Harita Alanı */
+    /* Gerçek Dünya Haritası Alanı */
     .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:15px; text-align:center; }
-    svg.world-map { width:100%; height:auto; max-height:450px; display:block; margin:0 auto; background:#0b1323; border-radius:10px; }
+    svg.world-map { width:100%; height:auto; max-height:480px; display:block; margin:0 auto; background:#0b1323; border-radius:10px; }
     svg.world-map path { fill:#1e293b; stroke:#334155; stroke-width:0.8px; transition:fill .2s, stroke .2s; cursor:pointer; }
     svg.world-map path:hover { fill:#334155; stroke:var(--accent); stroke-width:1.5px; }
     svg.world-map path.selected { fill:#2563eb !important; stroke:#93c5fd; stroke-width:2px; }
@@ -45,7 +45,7 @@
 <body>
 <header>
   <div class="brand">🌍 Dünya Hâkimiyeti</div>
-  <span class="pill">ATLAS HARİTA v3</span>
+  <span class="pill">GERÇEK HARİTA v4</span>
 </header>
 <main>
   <section class="card">
@@ -66,7 +66,7 @@
 
   <section class="card" id="profileCard">
     <h2>Ülke ve Renk Seçimi</h2>
-    <p id="gameInfo">Okul kitaplarındaki dünya haritasından ülkene tıkla.</p>
+    <p id="gameInfo">Dünya haritasından ülkeni seç veya listeden bul.</p>
     <label for="username">Oyuncu Adı</label>
     <input id="username" maxlength="24" placeholder="Örn: Komutan">
     <div class="row">
@@ -79,7 +79,7 @@
       </div>
       <div>
         <label for="country">Başlangıç Ülkesi</label>
-        <select id="country"><option value="">Haritadan Seç veya Listeden Bul…</option></select>
+        <select id="country"><option value="">Yükleniyor…</option></select>
       </div>
     </div>
     <button id="saveProfile">Seçimi Kaydet</button>
@@ -89,32 +89,43 @@
   <section class="card wide">
     <div class="map-container">
       <p class="small" style="margin-top:0">🗺️ Dünya Siyasi Sınır Haritası (Ülkelere tıklayarak seçebilirsin)</p>
-      <!-- Okul atlası tarzı detaylı kıta ve ülke vektör sınırları -->
+      <!-- Gerçek dünya kıta ve ülke formuna uygun SVG vektörleri -->
       <svg class="world-map" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
-        <!-- Kuzey Amerika / Kanada (CA) -->
-        <path id="map-CA" d="M40,70 Q120,40 220,50 Q280,60 300,120 Q260,160 200,150 Q120,160 80,120 Z" onclick="selectCountryFromMap('CA')" />
-        <!-- Brezilya / Güney Amerika (BR) -->
-        <path id="map-BR" d="M260,260 Q340,270 380,310 Q360,400 300,420 Q240,380 250,310 Z" onclick="selectCountryFromMap('BR')" />
-        <!-- Finlandiya (FI) -->
-        <path id="map-FI" d="M530,55 Q550,50 560,95 Q540,110 525,90 Z" onclick="selectCountryFromMap('FI')" />
-        <!-- İsveç (SE) -->
-        <path id="map-SE" d="M500,60 Q520,55 525,105 Q505,115 490,95 Z" onclick="selectCountryFromMap('SE')" />
+        <!-- Kanada (CA) - Kuzey Amerika üst kısım -->
+        <path id="map-CA" d="M 80,60 Q 180,40 280,55 L 290,140 Q 200,165 100,140 Z" onclick="selectCountryFromMap('CA')" />
+        
+        <!-- Brezilya (BR) - Güney Amerika -->
+        <path id="map-BR" d="M 280,260 Q 360,270 380,340 Q 350,420 270,410 Q 240,340 280,260 Z" onclick="selectCountryFromMap('BR')" />
+        
         <!-- Norveç (NO) -->
-        <path id="map-NO" d="M470,70 Q490,65 495,115 Q475,120 460,95 Z" onclick="selectCountryFromMap('NO')" />
-        <!-- Almanya (DE) -->
-        <path id="map-DE" d="M485,135 Q510,130 520,155 Q500,175 480,160 Z" onclick="selectCountryFromMap('DE')" />
-        <!-- Türkiye (TR) -->
-        <path id="map-TR" d="M545,165 Q580,160 620,168 Q615,195 540,190 Z" onclick="selectCountryFromMap('TR')" />
-        <!-- Mısır (EG) -->
-        <path id="map-EG" d="M550,205 Q590,200 605,245 Q555,250 540,225 Z" onclick="selectCountryFromMap('EG')" />
+        <path id="map-NO" d="M 475,55 Q 490,50 495,115 L 470,110 Z" onclick="selectCountryFromMap('NO')" />
+        
+        <!-- İsveç (SE) -->
+        <path id="map-SE" d="M 500,55 Q 515,50 520,120 L 498,118 Z" onclick="selectCountryFromMap('SE')" />
+        
+        <!-- Finlandiya (FI) -->
+        <path id="map-FI" d="M 525,60 Q 545,55 550,110 L 522,112 Z" onclick="selectCountryFromMap('FI')" />
+        
+        <!-- Almanya (DE) - Avrupa -->
+        <path id="map-DE" d="M 485,135 Q 515,130 520,165 L 480,170 Z" onclick="selectCountryFromMap('DE')" />
+        
+        <!-- Türkiye (TR) - Anadolu -->
+        <path id="map-TR" d="M 545,168 Q 585,160 625,172 L 620,198 L 540,192 Z" onclick="selectCountryFromMap('TR')" />
+        
+        <!-- Mısır (EG) - Kuzey Afrika -->
+        <path id="map-EG" d="M 545,210 Q 590,205 605,250 L 540,245 Z" onclick="selectCountryFromMap('EG')" />
+        
         <!-- Pakistan (PK) -->
-        <path id="map-PK" d="M640,175 Q670,170 685,210 Q655,220 635,195 Z" onclick="selectCountryFromMap('PK')" />
+        <path id="map-PK" d="M 640,178 Q 670,172 685,215 L 635,210 Z" onclick="selectCountryFromMap('PK')" />
+        
         <!-- Hindistan (IN) -->
-        <path id="map-IN" d="M685,185 Q725,180 750,240 Q715,270 680,230 Z" onclick="selectCountryFromMap('IN')" />
+        <path id="map-IN" d="M 690,185 Q 730,180 755,255 L 685,245 Z" onclick="selectCountryFromMap('IN')" />
+        
         <!-- Japonya (JP) -->
-        <path id="map-JP" d="M830,165 Q855,160 850,210 Q835,215 825,185 Z" onclick="selectCountryFromMap('JP')" />
+        <path id="map-JP" d="M 830,165 Q 850,160 855,215 L 830,210 Z" onclick="selectCountryFromMap('JP')" />
+        
         <!-- Avustralya (AU) -->
-        <path id="map-AU" d="M785,320 Q860,310 910,360 Q890,430 780,420 Q770,360 785,320 Z" onclick="selectCountryFromMap('AU')" />
+        <path id="map-AU" d="M 780,330 Q 860,320 910,380 Q 890,440 775,430 Z" onclick="selectCountryFromMap('AU')" />
       </svg>
     </div>
     <h2 style="margin-top:20px">Odadaki Oyuncular <span id="count" class="small"></span></h2>
@@ -252,7 +263,6 @@
       
       box.className = "status"; box.replaceChildren();
       
-      // Oyuncuların seçtiği ülkeleri haritada kendi renkleriyle boya
       rows.forEach(r => {
         const pathEl = $(`map-${r.country_code}`);
         if (pathEl) pathEl.style.fill = r.color;
