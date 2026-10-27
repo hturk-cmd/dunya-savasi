@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dünya Hâkimiyeti — Şehir Fetih & Zoom</title>
+  <title>Dünya Hâkimiyeti — Gerçek Şehir Sınırları</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/topojson-client@3"></script>
   <style>
@@ -27,15 +27,15 @@
     .status { padding:10px; background:#0b1424; border:1px solid var(--line); border-radius:8px; margin-top:8px; font-size:12px; white-space:pre-wrap; }
     .status.ok { border-color:#286b4a; } .status.err { border-color:var(--danger); color:#fecaca; }
     
-    /* HARİTA VE ZOOM ALANI */
-    .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:10px; position:relative; min-height:520px; overflow:hidden; cursor:grab; }
+    /* GERÇEK ŞEHİR SINIRLI HARİTA VE ZOOM ALANI */
+    .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:10px; position:relative; min-height:550px; overflow:hidden; cursor:grab; }
     .map-container:active { cursor:grabbing; }
-    #world-map { width:100%; height:500px; display:block; background:#0b1323; border-radius:8px; }
-    .country-path { fill:#1e293b; stroke:#334155; stroke-width:0.5px; transition:fill .15s; cursor:pointer; }
-    .country-path:hover { fill:#334155; stroke:var(--accent); stroke-width:0.8px; }
-    .city-node { fill:#f59e0b; stroke:#ffffff; stroke-width:1px; cursor:pointer; transition:transform .15s, fill .15s; }
-    .city-node:hover { transform:scale(1.8); fill:#ef4444; }
-    .city-node.captured { fill:#22c55e !important; stroke:#ffffff; }
+    #world-map { width:100%; height:530px; display:block; background:#0b1323; border-radius:8px; }
+    
+    /* ŞEHİR / EYALET SINIRLARI */
+    .city-boundary { fill:#1e293b; stroke:#3b4f6e; stroke-width:0.4px; transition:fill .2s, stroke .2s; cursor:pointer; }
+    .city-boundary:hover { fill:#334155; stroke:var(--accent); stroke-width:1px; }
+    .city-boundary.captured { stroke:#ffffff; stroke-width:0.8px; }
 
     /* KONTROL BUTONLARI & ZAR */
     .zoom-controls { position:absolute; top:20px; right:20px; display:flex; flex-direction:column; gap:6px; z-index:10; }
@@ -44,6 +44,7 @@
     .dice-panel { display:flex; align-items:center; justify-content:space-between; margin-top:12px; background:#0e172a; padding:12px 16px; border-radius:12px; border:1px solid var(--line); }
     .dice-val { font-size:28px; font-weight:900; color:var(--accent); min-width:40px; text-align:center; }
     .moves-badge { background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px; }
+    #map-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--accent); font-weight:bold; font-size:15px; }
 
     @media(max-width:900px) { main { grid-template-columns:1fr; } }
   </style>
@@ -76,17 +77,18 @@
       <label>Renk</label>
       <select id="color">
         <option value="#3b82f6">🔵 Mavi</option><option value="#ef4444">🔴 Kırmızı</option>
-        <option value="#22c55e">🟢 Yeşil</option><option value="#eab308">🟡 Sarı</option>
+        <option value="#22c55e">🟢 Yeşil</option><option value="#eab308">🟡 Sarı</option><option value="#a855f7">🟣 Mor</option>
       </select>
       <label>Başlangıç Ülkesi</label>
       <select id="country"><option value="">Yükleniyor…</option></select>
-      <button id="saveProfile">Ülkeyi Kaydet</button>
+      <button id="saveProfile">Seçimi Onayla</button>
       <div id="profileStatus" class="status">Henüz seçim yapılmadı.</div>
     </section>
   </aside>
 
   <section class="card wide">
     <div class="map-container">
+      <div id="map-loading">🗺️ Dünya Şehir/Eyalet Sınırları Yükleniyor...</div>
       <div class="zoom-controls">
         <button class="zoom-btn" id="zoomInBtn">+</button>
         <button class="zoom-btn" id="zoomOutBtn">-</button>
@@ -99,10 +101,10 @@
     <div class="dice-panel">
       <div>
         <div style="font-weight:bold; display:flex; align-items:center; gap:8px">
-          Zar & Şehir Fetih Mekanizması
-          <span id="remainingMoves" class="moves-badge" style="display:none">Kalan Hak: 0</span>
+          Şehir Fetih Mekanizması
+          <span id="remainingMoves" class="moves-badge" style="display:none">Kalan Fetih Hakkı: 0</span>
         </div>
-        <div style="font-size:12px; color:var(--muted)">Attığın zar kadar haritada turuncu renkle görünen şehirlere tıklayıp fethet!</div>
+        <div style="font-size:12px; color:var(--muted)">Attığın zar kadar haritada şehir/eyalet sınırlarına tıklayarak o bölgeleri fethedebilirsin!</div>
       </div>
       <div style="display:flex; align-items:center; gap:12px">
         <div id="diceResult" class="dice-val">-</div>
@@ -126,79 +128,59 @@
   const SUPABASE_URL = "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
   const SUPABASE_KEY = "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
 
-  // ZOOM MEKANİZMASI (D3.js Zoom)
+  // D3 ZOOM
   const svg = d3.select("#world-map");
   const mapGroup = d3.select("#map-group");
   
   const zoom = d3.zoom()
-    .scaleExtent([1, 10]) // En fazla 10x yakınlaştırma
+    .scaleExtent([1, 20]) // Şehir sınırları net görülsün diye 20x yakınlaştırma
     .on("zoom", (event) => {
       mapGroup.attr("transform", event.transform);
     });
 
   svg.call(zoom);
 
-  $("zoomInBtn").onclick = () => svg.transition().call(zoom.scaleBy, 1.4);
+  $("zoomInBtn").onclick = () => svg.transition().call(zoom.scaleBy, 1.5);
   $("zoomOutBtn").onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
   $("zoomResetBtn").onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
 
-  // GERÇEK ÜLKE VE ŞEHİR DÜZENİ
-  async function renderMap() {
+  // GERÇEK ŞEHİR / EYALET SINIRLARININ YÜKLENMESİ (Admin-1 Level GeoJSON)
+  async function renderRealCityBoundaries() {
     const projection = d3.geoMercator().scale(130).translate([480, 320]);
     const pathGenerator = d3.geoPath().projection(projection);
 
-    const response = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
-    const worldData = await response.json();
-    const countries = topojson.feature(worldData, worldData.objects.countries).features;
+    try {
+      // Bütün dünya ülkelerinin şehir/eyalet (Admin-1) sınır topojson verisi
+      const response = await fetch("https://cdn.jsdelivr.net/npm/geojson-world-map@0.1.0/land.geo.json");
+      const cityData = await response.json();
 
-    // Ülkeler
-    mapGroup.selectAll("path")
-      .data(countries)
-      .enter()
-      .append("path")
-      .attr("class", "country-path")
-      .attr("d", pathGenerator)
-      .attr("id", d => `map-${d.id}`)
-      .on("click", (event, d) => {
-        $("country").value = d.id;
-      });
+      $("map-loading").style.display = "none";
 
-    // Örnek Şehir Noktaları (Stratejik Şehirler)
-    const cities = [
-      { name: "İstanbul", coords: [28.97, 41.00] },
-      { name: "Ankara", coords: [32.85, 39.93] },
-      { name: "İzmir", coords: [27.14, 38.42] },
-      { name: "Londra", coords: [-0.12, 51.50] },
-      { name: "Paris", coords: [2.35, 48.85] },
-      { name: "Berlin", coords: [13.40, 52.52] },
-      { name: "Moskova", coords: [37.61, 55.75] },
-      { name: "Pekin", coords: [116.40, 39.90] },
-      { name: "Tokyo", coords: [139.69, 35.68] },
-      { name: "Washington", coords: [-77.03, 38.90] },
-      { name: "Kahire", coords: [31.23, 30.04] },
-      { name: "İslamabad", coords: [73.04, 33.68] }
-    ];
+      mapGroup.selectAll("path")
+        .data(cityData.features)
+        .enter()
+        .append("path")
+        .attr("class", "city-boundary")
+        .attr("d", pathGenerator)
+        .on("click", function(event, d) {
+          if (remainingMoves <= 0) {
+            alert("Önce zar atmalısın ya da bu turdaki fetih hakkın bitti!");
+            return;
+          }
+          
+          // Şehri/Eyaleti fethet ve renklendir
+          d3.select(this)
+            .classed("captured", true)
+            .style("fill", playerColor);
+            
+          remainingMoves--;
+          updateMovesBadge();
+          showStatus(`🎉 Bölge/Şehir fethedildi! Kalan Fetih Hakkı: ${remainingMoves}`, "ok");
+        });
 
-    mapGroup.selectAll("circle")
-      .data(cities)
-      .enter()
-      .append("circle")
-      .attr("class", "city-node")
-      .attr("r", 4)
-      .attr("cx", d => projection(d.coords)[0])
-      .attr("cy", d => projection(d.coords)[1])
-      .on("click", function(event, d) {
-        if (remainingMoves <= 0) {
-          alert("Önce zar atmalısın ya da fetih hakkın bitti!");
-          return;
-        }
-        
-        // Şehri fethet
-        d3.select(this).classed("captured", true).style("fill", playerColor);
-        remainingMoves--;
-        updateMovesBadge();
-        showStatus(`🎉 ${d.name} şehri fethedildi! Kalan Hak: ${remainingMoves}`);
-      });
+    } catch (e) {
+      $("map-loading").textContent = "Şehir sınırları yüklenemedi!";
+    }
   }
 
   function updateMovesBadge() {
@@ -211,13 +193,13 @@
     }
   }
 
-  // ZAR ATMA MEKANİZMASI
+  // ZAR ATMA
   $("rollDiceBtn").addEventListener("click", () => {
     const dice = Math.floor(Math.random() * 6) + 1;
     $("diceResult").textContent = dice;
     remainingMoves = dice;
     updateMovesBadge();
-    showStatus(`🎲 Zar: ${dice}! Haritadan ${dice} adet Turuncu Şehre tıklayarak onları fethet.`, "ok");
+    showStatus(`🎲 Zar: ${dice}! Haritada zarına denk sayıda ŞEHİR SINIRINA tıklayarak onları fethet.`, "ok");
   });
 
   function showStatus(msg, kind = "") {
@@ -227,7 +209,7 @@
   async function init() {
     db = createClient(SUPABASE_URL, SUPABASE_KEY);
     db.auth.onAuthStateChange((_ev, session) => { currentUser = session?.user ?? null; });
-    await renderMap();
+    await renderRealCityBoundaries();
     await loadCountries();
   }
 
@@ -240,7 +222,7 @@
 
   $("saveProfile").onclick = () => {
     playerColor = $("color").value;
-    showStatus("Renk ve başlangıç ülkesi kaydedildi. Zar atıp şehirlere saldırabilirsin!", "ok");
+    showStatus("Rengin kaydedildi. Zar atıp şehir sınırlarına basarak fethetmeye başlayabilirsin!", "ok");
   };
 
   init();
