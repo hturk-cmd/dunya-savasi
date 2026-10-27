@@ -1,685 +1,187 @@
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dünya Hâkimiyeti</title>
-
-<style>
-:root {
-  color-scheme: dark;
-  --bg: #0b1020;
-  --panel: #151d30;
-  --line: #2b3851;
-  --text: #edf3ff;
-  --muted: #9baac2;
-  --accent: #60a5fa;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px system-ui, sans-serif;
-}
-header {
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--line);
-  background: #10182a;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-h1 { margin: 0; font-size: 23px; }
-h2 { font-size: 16px; margin: 0 0 14px; }
-small, .muted { color: var(--muted); }
-main {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px;
-}
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 16px;
-  min-width: 0;
-}
-input, select, button {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: #0d1526;
-  color: var(--text);
-  margin: 5px 0;
-  font: inherit;
-}
-button {
-  cursor: pointer;
-  background: #2563eb;
-  border-color: #3b82f6;
-  font-weight: 650;
-}
-button:hover { filter: brightness(1.15); }
-button.secondary { background: #27344b; border-color: #3b4962; }
-button:disabled { opacity: .5; cursor: not-allowed; }
-.row { display: flex; gap: 8px; }
-.row > * { min-width: 0; flex: 1; }
-#status {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-  color: #93c5fd;
-  margin-top: 10px;
-}
-#mapbox {
-  height: min(72vh, 720px);
-  min-height: 400px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: #0a1425;
-  border: 1px solid var(--line);
-  position: relative;
-}
-#map { width: 100%; height: 100%; display: block; }
-.region {
-  stroke: #7c91ac;
-  stroke-width: .45;
-  vector-effect: non-scaling-stroke;
-  cursor: pointer;
-  transition: fill .12s;
-}
-.region:hover { stroke: white; stroke-width: 1.5; }
-.map-tools {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.map-tools button { width: auto; min-width: 44px; }
-#players { display: grid; gap: 8px; }
-.player {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 9px;
-  background: #0d1526;
-  border-radius: 8px;
-}
-.swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  flex: 0 0 14px;
-}
-#dice {
-  font-size: 36px;
-  font-weight: 800;
-  text-align: center;
-  margin: 10px 0;
-}
-@media(max-width: 850px) {
-  main { grid-template-columns: 1fr; }
-  #mapbox { height: 58vh; min-height: 330px; }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dünya Hâkimiyeti — Harita</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #101722;
+      color: #edf3ff;
+      font-family: Arial, sans-serif;
+    }
+    header {
+      padding: 14px 18px;
+      background: #192536;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 { font-size: 20px; margin: 0; }
+    #status { color: #aabbd2; font-size: 13px; margin-top: 5px; }
+    .tools { display: flex; gap: 8px; }
+    button {
+      background: #2b3d55;
+      color: white;
+      border: 1px solid #526782;
+      border-radius: 8px;
+      padding: 9px 13px;
+      cursor: pointer;
+    }
+    button:hover { background: #3c5575; }
+    #map-wrap {
+      height: calc(100vh - 76px);
+      min-height: 400px;
+      overflow: hidden;
+      position: relative;
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #111c2b;
+      touch-action: none;
+    }
+    .region {
+      fill: #30445d;
+      stroke: #71839a;
+      stroke-width: .45;
+      vector-effect: non-scaling-stroke;
+      cursor: pointer;
+    }
+    .region:hover {
+      fill: #e6b85c;
+      stroke: #fff0bd;
+      stroke-width: 1.2;
+    }
+    .region.selected { fill: #d6a644; }
+    #info {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      padding: 10px 14px;
+      background: #192536eF;
+      border: 1px solid #40536d;
+      border-radius: 9px;
+      pointer-events: none;
+      max-width: calc(100% - 32px);
+    }
+  </style>
 </head>
-
 <body>
-<header>
-  <div>
-    <h1>🌍 Dünya Hâkimiyeti</h1>
-    <small>Kur. Genişle. Hâkimiyet kur.</small>
-  </div>
-  <div id="userState" class="muted">Bağlantı kuruluyor...</div>
-</header>
-
-<main>
-<aside>
-  <section class="panel">
-    <h2>Hesap</h2>
-    <input id="email" type="email" placeholder="E-posta">
-    <input id="password" type="password" placeholder="Şifre">
-    <div class="row">
-      <button id="signup">Kayıt ol</button>
-      <button id="login" class="secondary">Giriş yap</button>
-    </div>
-    <button id="logout" class="secondary">Çıkış yap</button>
-  </section>
-
-  <section class="panel">
-    <h2>Oyuncu ve başlangıç ülkesi</h2>
-    <input id="username" maxlength="24" placeholder="Oyuncu adı">
-    <label for="color" class="muted">Oyuncu rengi</label>
-    <input id="color" type="color" value="#3b82f6">
-    <label for="country" class="muted">Başlangıç ülkesi</label>
-    <select id="country">
-      <option value="">Ülkeler yükleniyor...</option>
-    </select>
-    <button id="join">Seçimi onayla</button>
-    <small>Oyun odası: Dünya Odası 1</small>
-  </section>
-
-  <section class="panel">
-    <h2>Zar ve hamle</h2>
-    <div id="dice">—</div>
-    <div class="muted" id="moves">Önce oyuna katıl.</div>
-    <button id="roll">Zar at</button>
-    <small>Hamle sayın kadar bölge seçebilirsin.</small>
-  </section>
-
-  <section class="panel">
-    <h2>Oyuncular</h2>
-    <div id="players" class="muted">Henüz oyuncu listesi yüklenmedi.</div>
-  </section>
-</aside>
-
-<section class="panel">
-  <div class="row" style="align-items:center;margin-bottom:12px">
+  <header>
     <div>
-      <h2 style="margin-bottom:3px">Dünya haritası</h2>
-      <small id="mapStatus">Harita yükleniyor...</small>
+      <h1>🌍 Dünya Hâkimiyeti</h1>
+      <div id="status">Harita yükleniyor...</div>
     </div>
-    <div style="text-align:right">
-      <small id="regionCount">0 bölge</small>
+    <div class="tools">
+      <button id="zoom-in">＋ Yakınlaştır</button>
+      <button id="zoom-out">－ Uzaklaştır</button>
+      <button id="reset">Sıfırla</button>
     </div>
-  </div>
-
-  <div class="map-tools">
-    <button id="zoomIn" class="secondary">＋</button>
-    <button id="zoomOut" class="secondary">−</button>
-    <button id="resetZoom" class="secondary">Haritayı sıfırla</button>
-  </div>
-
-  <div id="mapbox">
-    <svg id="map" viewBox="0 0 960 560"
-         aria-label="Dünya idari bölgeler haritası"></svg>
-  </div>
-  <p class="muted">
-    Bir bölgeye tıklayarak hamleni kullanabilirsin.
-    Bölge adını görmek için üzerine gel.
-  </p>
-  <div id="status" role="status"></div>
-</section>
-</main>
-
-<script type="module">
-import { createClient } from
-  "https://esm.sh/@supabase/supabase-js@2";
-import * as d3 from
-  "https://cdn.jsdelivr.net/npm/d3@7/+esm";
-
-const SUPABASE_URL =
-  "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
-
-const SUPABASE_KEY =
-  "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
-
-const GAME_ID = "11111111-1111-1111-1111-111111111111";
-
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const $ = id => document.getElementById(id);
-
-let session = null;
-let me = null;
-let features = [];
-let moves = 0;
-let mapReady = false;
-let ownership = new Map();
-let players = [];
-let zoomBehavior;
-let mapLayer;
-let joined = false;
-
-function message(text) {
-  $("status").textContent = text;
-}
-
-function updateMoves() {
-  $("moves").textContent =
-    joined
-      ? `Kalan hamle: ${moves}`
-      : "Önce oyuna katıl.";
-  $("roll").disabled = !joined;
-}
-
-function validColor(color) {
-  return /^#[0-9a-fA-F]{6}$/.test(color);
-}
-
-async function loadCountries() {
-  const { data, error } = await db
-    .from("countries")
-    .select("code,name")
-    .order("name");
-
-  if (error) throw error;
-
-  $("country").replaceChildren();
-
-  for (const c of data) {
-    const option = document.createElement("option");
-    option.value = c.code;
-    option.textContent = c.name;
-    $("country").append(option);
-  }
-}
-
-async function loadMap() {
-  $("mapStatus").textContent = "regions.geojson okunuyor...";
-
-  const response = await fetch("./regions.geojson");
-
-  if (!response.ok) {
-    throw new Error(
-      "regions.geojson yüklenemedi. Dosyanın index.html ile aynı klasörde olduğuna emin ol."
-    );
-  }
-
-  const data = await response.json();
-
-  if (data.type !== "FeatureCollection" ||
-      !Array.isArray(data.features)) {
-    throw new Error("GeoJSON dosyasının biçimi geçersiz.");
-  }
-
-  features = data.features.filter(f => f.geometry);
-
-  if (!features.length) {
-    throw new Error("Harita dosyasında çizilebilir bölge bulunamadı.");
-  }
-
-  $("regionCount").textContent =
-    features.length.toLocaleString("tr-TR") + " bölge";
-
-  drawMap(data);
-}
-
-function drawMap(data) {
-  const svg = d3.select("#map");
-  svg.selectAll("*").remove();
-
-  const projection = d3.geoNaturalEarth1()
-    .fitExtent([[8, 8], [952, 552]], data);
-
-  const path = d3.geoPath(projection);
-
-  mapLayer = svg.append("g");
-
-  mapLayer.selectAll("path")
-    .data(features)
-    .join("path")
-    .attr("class", "region")
-    .attr("data-region-id", f => regionId(f))
-    .attr("fill", f => regionColor(f))
-    .attr("d", path)
-    .on("click", async (event, feature) => {
-      await captureRegion(feature);
-    })
-    .append("title")
-    .text(f => {
-      const p = f.properties || {};
-      return p.region_name || p.shapeName || p.name || "Bölge";
-    });
-
-  zoomBehavior = d3.zoom()
-    .scaleExtent([1, 12])
-    .on("zoom", event => {
-      mapLayer.attr("transform", event.transform);
-    });
-
-  svg.call(zoomBehavior);
-  mapReady = true;
-
-  $("mapStatus").textContent = "Harita hazır";
-}
-
-function regionId(feature) {
-  const p = feature.properties || {};
-  return String(p.region_id || p.shapeID || p.shapeISO || "");
-}
-
-function regionColor(feature) {
-  const id = regionId(feature);
-  return ownership.get(id)?.owner_color || "#26354a";
-}
-
-function repaintRegion(id) {
-  d3.select("#map")
-    .selectAll("path.region")
-    .filter(f => regionId(f) === id)
-    .attr("fill", f => regionColor(f));
-}
-
-async function loadOwnership() {
-  const { data, error } = await db
-    .from("region_ownership")
-    .select("region_id,owner_user_id,owner_color")
-    .eq("game_id", GAME_ID);
-
-  if (error) throw error;
-
-  ownership.clear();
-
-  for (const row of data) {
-    ownership.set(row.region_id, row);
-  }
-
-  if (mapReady) {
-    d3.select("#map")
-      .selectAll("path.region")
-      .attr("fill", f => regionColor(f));
-  }
-}
-
-async function ensureRegionsRegistered() {
-  const { count, error } = await db
-    .from("regions")
-    .select("id", { count: "exact", head: true });
-
-  if (error) throw error;
-
-  if (count === features.length) return;
-
-  message("Bölge kayıtları hazırlanıyor...");
-
-  for (let i = 0; i < features.length; i += 200) {
-    const batch = features.slice(i, i + 200).map(f => {
-      const p = f.properties || {};
-      return {
-        id: regionId(f),
-        name: String(
-          p.region_name || p.shapeName || p.name || "Bölge"
-        )
-      };
-    }).filter(r => r.id);
-
-    const { error: syncError } = await db.rpc("sync_regions", {
-      p_regions: batch
-    });
-
-    if (syncError) throw syncError;
-
-    message(`Bölgeler kaydediliyor: ${
-      Math.min(i + 200, features.length)
-    }/${features.length}`);
-  }
-}
-
-async function refreshPlayers() {
-  const { data, error } = await db
-    .from("game_players")
-    .select("user_id,country_code,color")
-    .eq("game_id", GAME_ID);
-
-  if (error) throw error;
-
-  const ids = data.map(p => p.user_id);
-  let profiles = [];
-
-  if (ids.length) {
-    const result = await db
-      .from("profiles")
-      .select("id,username")
-      .in("id", ids);
-
-    if (result.error) throw result.error;
-    profiles = result.data;
-  }
-
-  players = data.map(p => ({
-    ...p,
-    username: profiles.find(x => x.id === p.user_id)?.username
-      || "Oyuncu"
-  }));
-
-  $("players").replaceChildren();
-
-  for (const p of players) {
-    const item = document.createElement("div");
-    item.className = "player";
-
-    const swatch = document.createElement("span");
-    swatch.className = "swatch";
-    swatch.style.background = p.color;
-
-    const info = document.createElement("div");
-    const name = document.createElement("strong");
-    name.textContent = p.username;
-
-    const country = document.createElement("div");
-    country.className = "muted";
-    country.textContent = p.country_code;
-
-    info.append(name, country);
-    item.append(swatch, info);
-    $("players").append(item);
-  }
-
-  if (!players.length) {
-    $("players").textContent = "Henüz oyuncu yok.";
-  }
-}
-
-async function joinGame() {
-  if (!session) {
-    throw new Error("Önce giriş yapmalısın.");
-  }
-
-  const username = $("username").value.trim();
-  const country = $("country").value;
-  const color = $("color").value;
-
-  if (username.length < 2 || username.length > 24) {
-    throw new Error("Oyuncu adı 2-24 karakter olmalı.");
-  }
-
-  if (!country || !validColor(color)) {
-    throw new Error("Ülke ve renk seçmelisin.");
-  }
-
-  const { error } = await db.rpc("join_game", {
-    p_game_id: GAME_ID,
-    p_username: username,
-    p_country: country,
-    p_color: color
-  });
-
-  if (error) throw error;
-
-  me = {
-    id: session.user.id,
-    username,
-    color
-  };
-
-  joined = true;
-  $("userState").textContent = `Oyuncu: ${username}`;
-
-  await ensureRegionsRegistered();
-  await loadOwnership();
-  await refreshPlayers();
-
-  message("Oyuna katıldın. Zar atarak hamle başlatabilirsin.");
-  updateMoves();
-}
-
-async function captureRegion(feature) {
-  if (!session || !joined) {
-    message("Önce giriş yap ve oyuna katıl.");
-    return;
-  }
-
-  if (moves <= 0) {
-    message("Önce zar atmalısın.");
-    return;
-  }
-
-  const id = regionId(feature);
-
-  if (!id) {
-    message("Bu bölgenin kimliği bulunamadı.");
-    return;
-  }
-
-  const existing = ownership.get(id);
-
-  if (existing?.owner_user_id === session.user.id) {
-    message("Bu bölge zaten senin.");
-    return;
-  }
-
-  try {
-    message("Bölge kaydediliyor...");
-
-    const { error } = await db.rpc("claim_region", {
-      p_game_id: GAME_ID,
-      p_region_id: id
-    });
-
-    if (error) throw error;
-
-    moves--;
-    updateMoves();
-
-    await loadOwnership();
-    message("Bölge sahipliği kaydedildi.");
-  } catch (error) {
-    message("Bölge alınamadı: " + error.message);
-  }
-}
-
-async function withStatus(action) {
-  try {
-    await action();
-  } catch (error) {
-    message(error.message || String(error));
-  }
-}
-
-$("signup").onclick = () => withStatus(async () => {
-  const { data, error } = await db.auth.signUp({
-    email: $("email").value.trim(),
-    password: $("password").value
-  });
-
-  if (error) throw error;
-
-  if (data.session) {
-    session = data.session;
-    $("userState").textContent = "Giriş yapıldı";
-    message("Hesap oluşturuldu.");
-  } else {
-    message("Hesap oluşturuldu. E-posta doğrulaması gerekiyorsa doğrula, ardından giriş yap.");
-  }
-});
-
-$("login").onclick = () => withStatus(async () => {
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $("email").value.trim(),
-    password: $("password").value
-  });
-
-  if (error) throw error;
-
-  session = data.session;
-  $("userState").textContent = "Giriş yapıldı";
-
-  message("Giriş başarılı.");
-  await ensureRegionsRegistered();
-  await loadOwnership();
-  await refreshPlayers();
-});
-
-$("logout").onclick = () => withStatus(async () => {
-  const { error } = await db.auth.signOut();
-  if (error) throw error;
-
-  session = null;
-  me = null;
-  joined = false;
-  moves = 0;
-
-  $("userState").textContent = "Oturum kapalı";
-  updateMoves();
-  message("Çıkış yapıldı.");
-});
-
-$("join").onclick = () => withStatus(joinGame);
-
-$("roll").onclick = () => {
-  if (!joined) {
-    message("Önce oyuna katıl.");
-    return;
-  }
-
-  if (moves > 0) {
-    message("Önce mevcut hamlelerini kullan.");
-    return;
-  }
-
-  moves = Math.floor(Math.random() * 6) + 1;
-  $("dice").textContent = "🎲 " + moves;
-  updateMoves();
-  message(`Zarın ${moves}. Bölge seçebilirsin.`);
-};
-
-$("zoomIn").onclick = () => d3.select("#map")
-  .transition().call(zoomBehavior.scaleBy, 1.4);
-
-$("zoomOut").onclick = () => d3.select("#map")
-  .transition().call(zoomBehavior.scaleBy, 1 / 1.4);
-
-$("resetZoom").onclick = () => d3.select("#map")
-  .transition().call(zoomBehavior.transform, d3.zoomIdentity);
-
-async function start() {
-  await loadCountries();
-  await loadMap();
-
-  const { data } = await db.auth.getSession();
-  session = data.session;
-
-  if (session) {
-    $("userState").textContent = "Giriş yapıldı";
-    await loadOwnership();
-    await refreshPlayers();
-  } else {
-    $("userState").textContent = "Oturum kapalı";
-  }
-
-  db.channel("world-game")
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "region_ownership",
-      filter: `game_id=eq.${GAME_ID}`
-    }, () => {
-      withStatus(loadOwnership);
-    })
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "game_players",
-      filter: `game_id=eq.${GAME_ID}`
-    }, () => {
-      withStatus(refreshPlayers);
-    })
-    .subscribe();
-
-  updateMoves();
-}
-
-start().catch(error => {
-  $("mapStatus").textContent = "Yükleme başarısız";
-  message(error.message || String(error));
-});
-</script>
+  </header>
+
+  <main id="map-wrap">
+    <svg id="map" viewBox="0 0 1200 650" aria-label="Dünya haritası">
+      <rect width="1200" height="650" fill="#111c2b"></rect>
+    </svg>
+    <div id="info">Bir bölgeye tıkla.</div>
+  </main>
+
+  <script type="module">
+    import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+    const svg = d3.select("#map");
+    const status = document.querySelector("#status");
+    const info = document.querySelector("#info");
+    const width = 1200;
+    const height = 650;
+
+    const layer = svg.append("g").attr("id", "regions-layer");
+    const zoom = d3.zoom()
+      .scaleExtent([1, 12])
+      .on("zoom", event => layer.attr("transform", event.transform));
+
+    svg.call(zoom);
+
+    document.querySelector("#zoom-in").onclick =
+      () => svg.transition().call(zoom.scaleBy, 1.4);
+    document.querySelector("#zoom-out").onclick =
+      () => svg.transition().call(zoom.scaleBy, 1 / 1.4);
+    document.querySelector("#reset").onclick =
+      () => svg.transition().call(zoom.transform, d3.zoomIdentity);
+
+    async function loadMap() {
+      try {
+        status.textContent = "regions.geojson yükleniyor...";
+        const response = await fetch("./regions.geojson");
+
+        if (!response.ok) {
+          throw new Error("regions.geojson bulunamadı (HTTP " + response.status + ")");
+        }
+
+        const data = await response.json();
+
+        if (!data || data.type !== "FeatureCollection" ||
+            !Array.isArray(data.features)) {
+          throw new Error("GeoJSON, FeatureCollection biçiminde değil.");
+        }
+
+        const features = data.features.filter(feature =>
+          feature &&
+          feature.geometry &&
+          ["Polygon", "MultiPolygon"].includes(feature.geometry.type)
+        );
+
+        if (!features.length) {
+          throw new Error("Dosyada çizilebilecek bölge bulunamadı.");
+        }
+
+        const collection = {
+          type: "FeatureCollection",
+          features
+        };
+
+        status.textContent = features.length + " bölge bulundu, harita çiziliyor...";
+
+        // Tüm dünyayı verinin sınırlarına göre kadraja sığdır.
+        const projection = d3.geoNaturalEarth1()
+          .fitExtent([[12, 12], [width - 12, height - 12]], collection);
+
+        const path = d3.geoPath(projection);
+
+        layer.selectAll("path")
+          .data(features)
+          .join("path")
+          .attr("class", "region")
+          .attr("d", feature => path(feature) || "")
+          .on("click", (event, feature) => {
+            event.stopPropagation();
+            layer.selectAll(".region").classed("selected", false);
+            d3.select(event.currentTarget).classed("selected", true);
+            const name = feature.properties?.region_name || "İsimsiz bölge";
+            const country = feature.properties?.country_code || "";
+            info.textContent = country ? name + " (" + country + ")" : name;
+          });
+
+        const bounds = d3.geoBounds(collection);
+        console.log("Toplam çizilen bölge:", features.length);
+        console.log("Coğrafi sınırlar:", bounds);
+        console.log("İlk bölgeler:", features.slice(0, 5).map(f => f.properties?.region_name));
+
+        status.textContent = "Harita hazır — " + features.length + " bölge";
+      } catch (error) {
+        console.error(error);
+        status.textContent = "Harita yüklenemedi: " + error.message;
+      }
+    }
+
+    loadMap();
+  </script>
 </body>
 </html>
