@@ -35,6 +35,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #map{width:100%;height:100%;display:block;touch-action:none}
 .region{stroke:#7c91ac;stroke-width:.4;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .12s, fill-opacity .12s}
 .region:hover{stroke:white;stroke-width:1.5}
+.siege-label{pointer-events:none;font-weight:800;font-family:system-ui,sans-serif}
 .map-tools{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .map-tools button{width:auto;min-width:42px;padding:8px 12px;flex:0 0 auto}
 #players{display:grid;gap:6px}
@@ -52,6 +53,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .toggle-plane.active{background:#7c2d12;border-color:#f59e0b;color:#fef3c7}
 .toggle-plane input{margin:0;width:auto;padding:0}
 .siege-info{font-size:12px;color:var(--gold);margin-top:4px}
+.warn-banner{background:#78350f;color:#fef3c7;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;font-weight:600}
+.online-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:6px;vertical-align:middle;border:1px solid rgba(0,0,0,.4)}
+.online-dot.on{background:#22c55e;box-shadow:0 0 6px #22c55e}
+.online-dot.off{background:#ef4444}
+.server-card{background:#0d1526;border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0;display:flex;flex-direction:column;gap:4px}
+.server-card button{padding:8px 12px;margin:4px 0 0 0}
 </style>
 </head>
 <body>
@@ -101,28 +108,63 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const $ = id => document.getElementById(id);
+const ONLINE_THRESHOLD_MS = 90000;
 
 let session = null;
-let gameState = null;      
+let gameState = null;
 let features = [];
-let neighbors = new Map(); 
-let ownership = new Map(); 
-let sieges = new Map(); 
+let neighbors = new Map();
+let ownership = new Map();
+let sieges = new Map();
 let planeMode = false;
 let channel = null;
-let zoomBehavior, mapLayer;
+let zoomBehavior, mapLayer, mapProjection, mapPath;
+let heartbeatTimer = null;
 
 function msg(t){ $("status").textContent = t; }
 function validColor(c){ return /^#[0-9a-fA-F]{6}$/.test(c); }
 function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
 function iAmTurn(){ return gameState?.game?.current_turn_user_id === session?.user?.id; }
 function curPhase(){ return gameState?.game?.status || "lobby"; }
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function isOnline(p){
+  if (!p?.last_seen_at) return false;
+  return (Date.now() - new Date(p.last_seen_at).getTime()) < ONLINE_THRESHOLD_MS;
+}
+function allOnline(){ return gameState?.players?.every(isOnline) ?? false; }
+
 function myDiceLeft(){
   if (!gameState) return 0;
-  const purpose = curPhase()==="war" ? "war" : "move";
+  const phase = curPhase();
+  const purpose = phase === "war" ? "war" : "move";
   const uid = session?.user?.id;
-  const d = gameState.dice.filter(x => x.user_id===uid && x.purpose===purpose && x.used < x.value);
+  const warId = phase === "war" ? gameState.war?.id : null;
+  const d = gameState.dice.filter(x =>
+    x.user_id === uid && x.purpose === purpose && x.used < x.value &&
+    (purpose !== "war" || x.war_id === warId)
+  );
   return d.reduce((s,x)=>s+(x.value-x.used),0);
+}
+
+// ---------- HEARTBEAT (online) ----------
+function startHeartbeat(gameId){
+  stopHeartbeat();
+  const beat = () => {
+    if (document.hidden) return;
+    db.rpc("heartbeat", { p_game_id: gameId }).catch(()=>{});
+  };
+  beat();
+  heartbeatTimer = setInterval(beat, 20000);
+  document.addEventListener("visibilitychange", onVisChange);
+}
+function stopHeartbeat(){
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  document.removeEventListener("visibilitychange", onVisChange);
+}
+function onVisChange(){
+  if (!document.hidden && gameState?.game?.id) {
+    db.rpc("heartbeat", { p_game_id: gameState.game.id }).catch(()=>{});
+  }
 }
 
 // ---------- AUTH ----------
@@ -132,26 +174,27 @@ async function signup(email, pw){
   if (data.session) { session = data.session; afterLogin(); }
   else msg("Hesap oluşturuldu. Lütfen e-postanızı onaylayın.");
 }
-
 async function login(email, pw){
   const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
   if (error) throw error;
   session = data.session; afterLogin();
 }
-
 async function logout(){
   await db.auth.signOut();
   session = null; gameState = null;
+  stopHeartbeat();
   if (channel) { db.removeChannel(channel); channel = null; }
   renderAuth();
 }
-
 async function afterLogin(){
   $("userState").textContent = "Giriş yapıldı";
   const { data, error } = await db.rpc("find_my_active_game");
   if (error) { msg(error.message); return; }
-  if (data) { gameState = data; enterGame(); }
-  else renderMenu();
+  if (data) {
+    gameState = data;
+    syncOwnership();     // ✅ RENK BUG FIX
+    enterGame();
+  } else renderMenu();
 }
 
 // ---------- MENÜ / LOBİ / OYUN ----------
@@ -167,18 +210,15 @@ function renderAuth(){
       </div>
       <div id="authStatus" style="color:var(--red); font-size:13px; margin-top:10px; font-weight:bold;"></div>
     </section>`;
-    
+
   $("signupBtn").onclick = () => withStatus(async () => {
-    const email = $("email").value.trim();
-    const pw = $("password").value;
+    const email = $("email").value.trim(); const pw = $("password").value;
     if(!email || !pw) throw new Error("E-posta ve şifre gerekli");
     $("authStatus").textContent = "İşleniyor...";
     await signup(email, pw);
   });
-
   $("loginBtn").onclick = () => withStatus(async () => {
-    const email = $("email").value.trim();
-    const pw = $("password").value;
+    const email = $("email").value.trim(); const pw = $("password").value;
     if(!email || !pw) throw new Error("E-posta ve şifre gerekli");
     $("authStatus").textContent = "Giriş yapılıyor...";
     await login(email, pw);
@@ -187,6 +227,10 @@ function renderAuth(){
 
 function renderMenu(){
   $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>🌐 Sunucu Listesi</h2>
+      <div id="serverList"><small class="muted">Yükleniyor…</small></div>
+    </section>
     <section class="panel">
       <h2>Oyun Kur</h2>
       <input id="newGameName" placeholder="Oyun adı">
@@ -210,8 +254,9 @@ function renderMenu(){
     <section class="panel">
       <button id="logoutBtn" class="secondary">Çıkış yap</button>
     </section>`;
-  
+
   fillCountries();
+  renderServerList();
 
   $("createGameBtn").onclick = () => withStatus(async () => {
     const name = $("newGameName").value.trim() || "Dünya Odası";
@@ -219,7 +264,6 @@ function renderMenu(){
     const country = $("createCountry").value;
     const color = $("createColor").value;
     if (!country) throw new Error("Lütfen bir başlangıç ülkesi seçin.");
-    
     const { data, error } = await db.rpc("create_game", { p_name: name, p_max_players: max, p_country: country, p_color: color });
     if (error) throw error;
     await loadGameState(data.id); enterGame();
@@ -233,13 +277,42 @@ function renderMenu(){
     if (code.length !== 6) throw new Error("6 haneli kod gir.");
     if (uname.length < 2) throw new Error("Oyuncu adı çok kısa.");
     if (!country) throw new Error("Lütfen bir ülke seçin.");
-    
     const { data, error } = await db.rpc("join_game_by_code", { p_code: code, p_country: country, p_color: color });
     if (error) throw error;
     await db.from("profiles").upsert({ id: session.user.id, username: uname });
     await loadGameState(data.id); enterGame();
   });
   $("logoutBtn").onclick = () => withStatus(logout);
+}
+
+async function renderServerList(){
+  const box = $("serverList");
+  if (!box) return;
+  try {
+    const { data, error } = await db.rpc("list_public_games");
+    if (error) throw error;
+    const games = data || [];
+    if (games.length === 0) {
+      box.innerHTML = '<small class="muted">Aktif sunucu yok. Yeni oyun kur veya kod ile katıl.</small>';
+      return;
+    }
+    box.innerHTML = games.map(g => `
+      <div class="server-card">
+        <div><strong>${escapeHTML(g.name)}</strong></div>
+        <small>${g.player_count}/${g.max_players} oyuncu • ${escapeHTML(g.creator_name||'?')}</small>
+        <button class="success join-server-btn" data-code="${g.code}">Katıl</button>
+      </div>
+    `).join("");
+    box.querySelectorAll(".join-server-btn").forEach(btn => {
+      btn.onclick = () => {
+        $("joinCode").value = btn.dataset.code;
+        msg("Kodu doldurduk. Ülke ve renk seçip 'Katıl'a bas.");
+        $("joinCode").scrollIntoView({behavior:"smooth", block:"center"});
+      };
+    });
+  } catch(e) {
+    box.innerHTML = '<small class="muted">Sunucu listesi yüklenemedi.</small>';
+  }
 }
 
 function fillCountries(){
@@ -254,7 +327,7 @@ function fillCountries(){
     const sorted = [...features].filter(f => f.properties.region_name).sort((a,b) => a.properties.region_name.localeCompare(b.properties.region_name));
     for (const f of sorted) {
       const o = document.createElement("option");
-      o.value = f.properties.region_id; 
+      o.value = f.properties.region_id;
       o.textContent = `${f.properties.region_name} (${f.properties.region_id})`;
       sel.append(o);
     }
@@ -266,16 +339,15 @@ async function loadGameState(gameId){
   if (error) throw error;
   gameState = data; syncOwnership();
 }
-
 function syncOwnership(){
   ownership.clear();
   for (const o of gameState.ownership) ownership.set(o.region_id, o);
   sieges.clear();
   if (gameState.sieges) { for (const s of gameState.sieges) sieges.set(s.region_id, s); }
 }
-
 function enterGame(){
   subscribeRealtime(); renderSidePanel(); repaintMap();
+  startHeartbeat(gameState.game.id);
   $("subTitle").textContent = `${gameState.game.name} • Kod: ${gameState.game.code}`;
 }
 
@@ -308,41 +380,54 @@ function playerListHTML(){
     const isTurn = p.user_id === gameState.game.current_turn_user_id;
     const mine = p.user_id === session.user.id;
     const regionCount = gameState.ownership.filter(o => o.owner_user_id === p.user_id).length;
+    const online = isOnline(p);
     return `<div class="player ${isTurn?'turn':''}">
       <span class="swatch" style="background:${p.color}"></span>
       <div style="flex:1;min-width:0">
-        <div><strong>${escapeHTML(p.username||'Oyuncu')}</strong> ${mine?'<small>(sen)</small>':''}</div>
+        <div><strong>${escapeHTML(p.username||'Oyuncu')}</strong> ${mine?'<small>(sen)</small>':''}
+          <span class="online-dot ${online?'on':'off'}" title="${online?'Online':'Offline'}"></span>
+        </div>
         <small>${regionCount} bölge</small>
       </div>
       ${isTurn?'<span class="badge playing">Sıra</span>':''}
     </div>`;
   }).join("");
 }
-function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
 function renderLobby(){
   const g = gameState.game;
   const myTurnDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "turn_order");
   const allRolled = gameState.players.every(p => gameState.dice.some(d => d.user_id === p.user_id && d.purpose === "turn_order"));
   const isCreator = g.creator_id === session.user.id;
+  const onlineOk = allOnline();
 
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Lobi <span class="badge lobby">bekliyor</span></h2>
       <div class="code-box" id="copyCode">${g.code}<small>Kodu arkadaşlarına gönder</small></div>
       <small>${gameState.players.length} / ${g.max_players} oyuncu</small>
+      ${isCreator ? `
+        <div class="toggle-plane ${g.is_public ? 'active' : ''}" id="publicToggle" style="margin-top:12px">
+          <input type="checkbox" id="publicCheckbox" ${g.is_public ? 'checked' : ''}>
+          <span>🌐 Sunucu listesinde göster (online)</span>
+        </div>
+      ` : ''}
     </section>
     <section class="panel">
       <h2>Sıra Zarı</h2>
       <div id="dice">${myTurnDice ? "🎲 "+myTurnDice.value : "—"}</div>
       <button id="rollTurnBtn" ${myTurnDice?'disabled':''}>Zar at (sıra için)</button>
-      ${isCreator ? `<button id="startBtn" style="margin-top:10px" ${allRolled?'':'disabled'} class="success">Oyunu Başlat</button>` : `<small>Kurucu bekleniyor…</small>`}
+      ${isCreator ? `
+        <button id="startBtn" style="margin-top:10px" ${allRolled && onlineOk ? '' : 'disabled'} class="success">Oyunu Başlat</button>
+        ${!onlineOk ? `<small class="muted" style="display:block;margin-top:6px">⚠️ Tüm oyuncular bağlı olmalı</small>` : ''}
+        ${onlineOk && !allRolled ? `<small class="muted" style="display:block;margin-top:6px">Herkes zar atmalı</small>` : ''}
+      ` : `<small>Kurucu bekleniyor…</small>`}
     </section>
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
   document.getElementById("copyCode").onclick = async () => {
-    try { await navigator.clipboard.writeText(gameState.game.code); msg("Kod kopyalandı: " + gameState.game.code); } 
+    try { await navigator.clipboard.writeText(gameState.game.code); msg("Kod kopyalandı: " + gameState.game.code); }
     catch { msg("Kod: " + gameState.game.code); }
   };
   $("rollTurnBtn").onclick = () => withStatus(async () => {
@@ -354,6 +439,15 @@ function renderLobby(){
       const { error } = await db.rpc("finalize_turn_order", { p_game_id: gameState.game.id });
       if (error) throw error; await refresh();
     });
+    if ($("publicToggle")) {
+      $("publicToggle").onclick = (e) => {
+        if (e.target.tagName !== 'INPUT') e.preventDefault();
+        withStatus(async () => {
+          const { error } = await db.rpc("set_game_public", { p_game_id: g.id, p_public: !g.is_public });
+          if (error) throw error; await refresh();
+        });
+      };
+    }
   }
   $("logoutBtn").onclick = () => withStatus(logout);
 }
@@ -363,8 +457,10 @@ function renderPlaying(){
   const myTurn = iAmTurn();
   const diceLeft = myDiceLeft();
   const myDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "move" && d.used < d.value);
+  const onlineOk = allOnline();
 
   $("sidePanel").innerHTML = `
+    ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil. Bağlantılar bekleniyor…</div>` : ''}
     <section class="panel">
       <h2>${escapeHTML(g.name)} <span class="badge playing">oynanıyor</span></h2>
       <small>Kod: ${g.code}</small>
@@ -374,7 +470,7 @@ function renderPlaying(){
       <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
       <div class="muted">${myTurn ? `Kalan hamle: ${diceLeft}` : "Sıra sende değil"}</div>
       <div class="siege-info">Ülke almak için toplam 6 puan gerekir.</div>
-      <button id="rollMoveBtn" ${!myTurn || diceLeft>0 ? 'disabled': ''}>Zar at</button>
+      <button id="rollMoveBtn" ${!myTurn || diceLeft>0 || !onlineOk ? 'disabled': ''}>Zar at</button>
       <label class="toggle-plane ${planeMode?'active':''}" id="planeToggle">
         <input type="checkbox" id="planeCheckbox" ${planeMode?'checked':''}>
         <span>✈️ Uçak modu (istediğin bölgeye uç)</span>
@@ -386,12 +482,12 @@ function renderPlaying(){
         <option value="">— rakip seç —</option>
         ${gameState.players.filter(p => p.user_id !== session.user.id).map(p => `<option value="${p.user_id}">${escapeHTML(p.username||'Oyuncu')}</option>`).join("")}
       </select>
-      <button id="declareWarBtn" class="danger" ${!myTurn || gameState.war ? 'disabled':''}>⚔️ Savaş İlan Et</button>
+      <button id="declareWarBtn" class="danger" ${!myTurn || gameState.war || !onlineOk ? 'disabled':''}>⚔️ Savaş İlan Et</button>
     </section>
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
-  if (myTurn && diceLeft === 0) {
+  if (myTurn && diceLeft === 0 && onlineOk) {
     $("rollMoveBtn").onclick = () => withStatus(async () => {
       const { error } = await db.rpc("roll_move_dice", { p_game_id: g.id });
       if (error) throw error; await refresh();
@@ -415,15 +511,53 @@ function renderPlaying(){
 function renderWar(){
   const g = gameState.game;
   const w = gameState.war;
-  const myTurn = w?.current_turn_user_id === session.user.id;
   const attacker = findPlayer(w.attacker_id);
   const defender = findPlayer(w.defender_id);
-  const diceLeft = myDiceLeft();
-  const myDice = gameState.dice.find(d => d.user_id === session.user.id && d.purpose === "war" && d.used < d.value);
   const iAmAttacker = w.attacker_id === session.user.id;
   const iWantEnd = iAmAttacker ? w.attacker_wants_end : w.defender_wants_end;
+  const onlineOk = allOnline();
+
+  // === FAZ 1: SIRA ZARI BELİRLEME ===
+  if (!w.order_set) {
+    const myOrder = (gameState.war_order_dice || []).find(d => d.user_id === session.user.id);
+    $("sidePanel").innerHTML = `
+      ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil.</div>` : ''}
+      <div class="war-banner">
+        <span>⚔️ SAVAŞ: ${escapeHTML(attacker?.username||'?')} ↔ ${escapeHTML(defender?.username||'?')}</span>
+        <span class="badge war">sıra belirleme</span>
+      </div>
+      <section class="panel">
+        <h2>Sıra Zarı</h2>
+        <p class="muted">Her iki taraf da zar atar. En yüksek atan önce saldırır.</p>
+        <div id="dice">${myOrder ? "🎲 "+myOrder.value : "—"}</div>
+        <button id="rollWarOrderBtn" class="danger" ${myOrder || !onlineOk ? 'disabled':''}>${myOrder ? 'Zar atıldı, rakip bekleniyor…' : 'Zar At'}</button>
+      </section>
+      <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
+      <button id="logoutBtn" class="secondary">Çıkış</button>`;
+
+    if (!myOrder && onlineOk) {
+      $("rollWarOrderBtn").onclick = () => withStatus(async () => {
+        const { data, error } = await db.rpc("roll_war_order_dice", { p_war_id: w.id });
+        if (error) throw error;
+        msg(`Zarın: ${data.roll}${data.both_rolled ? ` • İlk saldıran: ${findPlayer(data.first)?.username}` : ''}`);
+        await refresh();
+      });
+    }
+    $("logoutBtn").onclick = () => withStatus(logout);
+    updateMapHints();
+    return;
+  }
+
+  // === FAZ 2: SALDIRI ===
+  const myTurn = w.current_turn_user_id === session.user.id;
+  const diceLeft = myDiceLeft();
+  const myDice = gameState.dice.find(d =>
+    d.user_id === session.user.id && d.purpose === "war" &&
+    d.used < d.value && d.war_id === w.id
+  );
 
   $("sidePanel").innerHTML = `
+    ${!onlineOk ? `<div class="warn-banner">⚠️ Tüm oyuncular bağlı değil.</div>` : ''}
     <div class="war-banner">
       <span>⚔️ SAVAŞ: ${escapeHTML(attacker?.username||'?')} ↔ ${escapeHTML(defender?.username||'?')}</span>
       <span class="badge war">aktif</span>
@@ -431,18 +565,18 @@ function renderWar(){
     <section class="panel">
       <h2>Savaş Hamlesi</h2>
       <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
-      <div class="muted">${myTurn ? `Kalan füze: ${diceLeft}` : "Sıra sende değil"}</div>
-      <button id="rollWarBtn" ${!myTurn || diceLeft>0 ? 'disabled':''}>Savaş Zarı At</button>
+      <div class="muted">${myTurn ? (diceLeft>0 ? `Kalan füze: ${diceLeft}` : 'Zar at') : "Sıra sende değil"}</div>
+      <button id="rollWarBtn" class="danger" ${!myTurn || diceLeft>0 || !onlineOk ? 'disabled':''}>Savaş Zarı At</button>
     </section>
     <section class="panel">
       <h2>Savaşı Bitir</h2>
-      <button id="endWarBtn" class="secondary" ${iWantEnd?'disabled':''}>${iWantEnd ? 'Onay verildi, bekleniyor…' : 'Savaşı Bitir'}</button>
+      <button id="endWarBtn" class="secondary" ${iWantEnd || !onlineOk ? 'disabled':''}>${iWantEnd ? 'Onay verildi, bekleniyor…' : 'Savaşı Bitir'}</button>
       <small class="muted">(Her iki taraf da basarsa savaş biter)</small>
     </section>
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
     <button id="logoutBtn" class="secondary">Çıkış</button>`;
 
-  if (myTurn && diceLeft === 0) {
+  if (myTurn && diceLeft === 0 && onlineOk) {
     $("rollWarBtn").onclick = () => withStatus(async () => {
       const { error } = await db.rpc("roll_war_dice", { p_war_id: w.id });
       if (error) throw error; await refresh();
@@ -475,7 +609,7 @@ async function loadMap(){
     const response = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
     const world = await response.json();
     const countries = topojson.feature(world, world.objects.countries).features;
-    
+
     features = countries.map(f => {
         f.properties = f.properties || {};
         f.properties.region_id = String(f.id);
@@ -521,18 +655,20 @@ function buildNeighbors(){
 
 function drawMap(world){
   const svg = d3.select("#map"); svg.selectAll("*").remove();
-  const projection = d3.geoMercator().fitExtent([[10, 10], [950, 550]], { type: "Sphere" }); 
-  const path = d3.geoPath(projection);
+  mapProjection = d3.geoMercator().fitExtent([[10, 10], [950, 550]], { type: "Sphere" });
+  mapPath = d3.geoPath(mapProjection);
   mapLayer = svg.append("g");
-  
+
   mapLayer.selectAll("path")
     .data(features).join("path").attr("class", "region").attr("data-region-id", f => regionId(f))
-    .attr("fill", f => regionColor(f)).attr("fill-opacity", f => regionOpacity(f)).attr("d", path)
+    .attr("fill", f => regionColor(f)).attr("fill-opacity", f => regionOpacity(f)).attr("d", mapPath)
     .on("click", (ev, f) => onRegionClick(f))
     .append("title").text(f => f.properties.region_name || "Ülke");
 
   zoomBehavior = d3.zoom().scaleExtent([1, 14]).on("zoom", e => mapLayer.attr("transform", e.transform));
   svg.call(zoomBehavior);
+
+  repaintSiegeLabels();
 }
 
 function regionColor(f){
@@ -543,17 +679,40 @@ function regionColor(f){
   if (s) return s.color;
   return "#26354a";
 }
-
 function regionOpacity(f){
   const id = regionId(f);
   if (ownership.has(id)) return 1;
-  if (sieges.has(id)) return 0.5;
+  if (sieges.has(id)) return 0.6;
   return 1;
 }
 
 function repaintMap(){
   if (!mapLayer) return;
   mapLayer.selectAll("path.region").attr("fill", f => regionColor(f)).attr("fill-opacity", f => regionOpacity(f));
+  repaintSiegeLabels();
+}
+
+function repaintSiegeLabels(){
+  if (!mapLayer || !mapPath) return;
+  mapLayer.selectAll("text.siege-label").remove();
+  for (const [rid, siege] of sieges) {
+    const f = features.find(x => regionId(x) === rid);
+    if (!f) continue;
+    const [cx, cy] = mapPath.centroid(f);
+    if (!isFinite(cx) || !isFinite(cy)) continue;
+    mapLayer.append("text")
+      .attr("class", "siege-label")
+      .attr("x", cx).attr("y", cy)
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "central")
+      .attr("fill", "#fff")
+      .attr("font-size", 11)
+      .attr("paint-order", "stroke")
+      .attr("stroke", "#000")
+      .attr("stroke-width", 3)
+      .attr("stroke-linejoin", "round")
+      .text(`${siege.points}/6`);
+  }
 }
 
 function updateMapHints(){
@@ -572,19 +731,18 @@ async function onRegionClick(f){
   if (phase === "war") {
     const w = gameState.war;
     if (!w || w.current_turn_user_id !== session.user.id) { msg("Sıra sende değil."); return; }
+    if (!w.order_set) { msg("Önce savaş sıra zarını at."); return; }
     const own = ownership.get(rid);
     const enemyId = session.user.id === w.attacker_id ? w.defender_id : w.attacker_id;
     if (!own || own.owner_user_id !== enemyId) { msg("Sadece düşman bölgelerine saldırabilirsin."); return; }
     if (myDiceLeft() <= 0) { msg("Önce savaş zarı at."); return; }
-    
+
     try {
       const { data, error } = await db.rpc("fire_missile", { p_war_id: w.id, p_target_region_id: rid });
       if (error) throw error;
-      
-      if (data.conquered) msg(`💥 BÖLGE DÜŞTÜ! (Sen: ${data.attacker_roll} - O: ${data.defender_roll})`);
-      else msg(`🛡️ Savunma yaptı! (Sen: ${data.attacker_roll} - O: ${data.defender_roll}). Kalan Can: ${data.new_hp}`);
-      
       if (data.war_over) msg("🏆 SAVAŞ KAZANILDI! Rakibin hiç bölgesi kalmadı.");
+      else if (data.conquered) msg(`💥 BÖLGE DÜŞTÜ! (Sen: ${data.attacker_roll} - O: ${data.defender_roll})`);
+      else msg(`🛡️ Savunma yaptı! (Sen: ${data.attacker_roll} - O: ${data.defender_roll}). Kalan Can: ${data.new_hp}`);
       await refresh();
     } catch (e) { msg("Hata: " + e.message); }
     return;
@@ -617,32 +775,30 @@ $("zoomOut").onclick = () => zoomBehavior && d3.select("#map").transition().call
 $("resetZoom").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.transform, d3.zoomIdentity);
 
 async function withStatus(fn){
-  try { await fn(); } 
-  catch(e) { 
-    msg(e.message || String(e)); 
+  try { await fn(); }
+  catch(e) {
+    msg(e.message || String(e));
     const authErr = document.getElementById("authStatus");
     if (authErr) authErr.textContent = e.message || String(e);
-    console.error(e); 
+    console.error(e);
   }
 }
 
 async function start(){
   const { data } = await db.auth.getSession();
   session = data.session;
-  if (session) { 
-    $("userState").textContent = "Giriş yapıldı"; 
-    await afterLogin(); 
-  } else { 
-    $("userState").textContent = "Oturum kapalı"; 
-    renderAuth(); 
+  if (session) {
+    $("userState").textContent = "Giriş yapıldı";
+    await afterLogin();
+  } else {
+    $("userState").textContent = "Oturum kapalı";
+    renderAuth();
   }
 
   loadMap().then(() => {
     updateMapHints();
     if (gameState) repaintMap();
-  }).catch(e => {
-    console.error("Harita yüklenemedi:", e);
-  });
+  }).catch(e => console.error("Harita yüklenemedi:", e));
 }
 
 start();
