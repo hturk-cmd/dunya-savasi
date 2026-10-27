@@ -96,6 +96,7 @@ background:#0d1526;border-radius:8px;border:1px solid var(--line);cursor:pointer
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import * as topojson from "https://cdn.jsdelivr.net/npm/topojson-client@3/+esm";
 
 const SUPABASE_URL = "https://ycnhjtgrrhgwjbyhbfmh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_lzDd7QoBsJPCr8Fw1HDXMg_hPT7I_eG";
@@ -114,7 +115,6 @@ let zoomBehavior, mapLayer;
 function msg(t){ $("status").textContent = t; }
 function validColor(c){ return /^#[0-9a-fA-F]{6}$/.test(c); }
 function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
-function me(){ return findPlayer(session?.user?.id); }
 function iAmTurn(){ return gameState?.game?.current_turn_user_id === session?.user?.id; }
 function curPhase(){ return gameState?.game?.status || "lobby"; }
 function myDiceLeft(){
@@ -467,20 +467,29 @@ function renderEnded(){
   updateMapHints();
 }
 
-// ---------- HARİTA ----------
+// ---------- HARİTA (WORLD-ATLAS) ----------
 async function loadMap(){
-  $("mapStatus").textContent = "regions.geojson okunuyor…";
+  $("mapStatus").textContent = "Dünya haritası yükleniyor…";
   try {
-    const r = await fetch("./regions.geojson");
-    if (!r.ok) throw new Error("regions.geojson yüklenemedi.");
-    const data = await r.json();
+    // World Atlas TopoJSON verisini CDN üzerinden çekiyoruz.
+    const response = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+    if (!response.ok) throw new Error("Harita verisi indirilemedi.");
+    const world = await response.json();
     
-    // ANTARKTIKA'YI FİLTRELE (Haritayı bozuyor)
-    features = data.features.filter(f => f.geometry && f.properties?.country_code !== "ATA");
+    // TopoJSON'u GeoJSON'a çevir
+    const countries = topojson.feature(world, world.objects.countries).features;
     
-    $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " bölge";
+    // D3'ün çizebilmesi için özellikleri ayarla
+    features = countries.map(f => {
+        f.properties = f.properties || {};
+        f.properties.region_id = f.id;
+        f.properties.region_name = f.properties.name || "Bilinmeyen";
+        return f;
+    });
 
-    drawMap(data);
+    $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " ülke";
+
+    drawMap(world);
     $("mapStatus").textContent = "Harita çizildi, komşuluklar hesaplanıyor...";
 
     setTimeout(() => {
@@ -535,11 +544,11 @@ function buildNeighbors(){
   }
 }
 
-function drawMap(data){
+function drawMap(world){
   const svg = d3.select("#map");
   svg.selectAll("*").remove();
   
-  // TAM ORTALANMIŞ PROJEKSİYON (Antarktika çıkarıldığı için artık sorunsuz)
+  // Projeksiyon: Dünya küresini tam ekrana sığdır
   const projection = d3.geoMercator()
     .fitExtent([[10, 10], [950, 550]], { type: "Sphere" }); 
     
@@ -547,6 +556,7 @@ function drawMap(data){
 
   mapLayer = svg.append("g");
   
+  // Ülkeleri çiz
   mapLayer.selectAll("path")
     .data(features)
     .join("path")
@@ -556,9 +566,10 @@ function drawMap(data){
     .attr("d", path)
     .on("click", (ev, f) => onRegionClick(f))
     .append("title")
-    .text(f => (f.properties?.region_name || f.properties?.shapeName || f.properties?.name || "Bölge"));
+    .text(f => f.properties.region_name || "Ülke");
 
-  const countryGroups = d3.group(features, f => f.properties?.country_code || "");
+  // Ülke kodlarını (isimlerini) küçük şekilde yazdır
+  const countryGroups = d3.group(features, f => f.id || "");
   const labelLayer = mapLayer.append("g").attr("class", "labels");
   
   for (const [code, feats] of countryGroups) {
