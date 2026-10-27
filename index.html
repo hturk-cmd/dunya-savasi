@@ -124,6 +124,7 @@ let pollTimer = null;
 
 function msg(t){ $("status").textContent = t; }
 function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
+function iAmTurn(){ return gameState?.game?.current_turn_user_id === session?.user?.id; }
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function isOnline(p){
   if (!p?.last_seen_at) return false;
@@ -133,7 +134,7 @@ function allOnline(){ return gameState?.players?.every(isOnline) ?? false; }
 function curPhase(){
   if (!gameState) return "lobby";
   const s = gameState.game?.status;
-  if (s === 'lobby' || s === 'ended') return s;
+  if (s === 'lobby' || s === 'ended' || s === 'rolling') return s;
   if (gameState.war) return "war";
   return s || "playing";
 }
@@ -159,7 +160,7 @@ function startHeartbeat(gameId){
     if (gameState && (gameState.game.status === 'lobby' || gameState.game.status === 'rolling' || gameState.war)) {
       refresh();
     }
-  }, 5000);
+  }, 3000);
 }
 function stopHeartbeat(){
   if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
@@ -400,8 +401,8 @@ function renderSidePanel(){
   const g = gameState.game;
   if (g.status === "lobby") return renderLobby();
   if (g.status === "ended") return renderEnded();
-  if (gameState.war) return renderWar();
   if (g.status === "rolling") return renderRolling();
+  if (gameState.war) return renderWar();
   return renderPlaying();
 }
 
@@ -444,8 +445,9 @@ function renderLobby(){
     <section class="panel">
       <h2>Oyunu Başlat</h2>
       ${isCreator ? `
-        <button id="startBtn" ${onlineOk ? '' : 'disabled'} class="success">Oyunu Başlat</button>
-        ${!onlineOk ? `<small class="muted" style="display:block;margin-top:6px">⚠️ Tüm oyuncular bağlı olmalı</small>` : `<small class="muted" style="display:block;margin-top:6px">Herkes hazır olduğunda başlat.</small>`}
+        <div id="startError" style="color:var(--red); font-size:13px; margin-bottom:8px; font-weight:bold; white-space:pre-wrap;"></div>
+        <button id="startBtn" class="success">Oyunu Başlat</button>
+        ${!onlineOk ? `<small class="muted" style="display:block;margin-top:6px">⚠️ Tüm oyuncular bağlı değil (Yine de deneyebilirsin)</small>` : `<small class="muted" style="display:block;margin-top:6px">Herkes hazır olduğunda başlat.</small>`}
       ` : `<small>Kurucunun başlatması bekleniyor…</small>`}
     </section>
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
@@ -460,10 +462,19 @@ function renderLobby(){
   };
   
   if (isCreator) {
-    $("startBtn").onclick = () => withStatus(async () => {
-      const { error } = await db.rpc("start_game", { p_game_id: gameState.game.id });
-      if (error) throw error; await refresh();
-    });
+    $("startBtn").onclick = async () => {
+      const errEl = $("startError");
+      if (errEl) errEl.textContent = "Başlatılıyor, lütfen bekle...";
+      
+      const { error } = await db.rpc("start_game", { p_game_id: g.id });
+      
+      if (error) {
+        if (errEl) errEl.textContent = "HATA: " + error.message;
+        alert("Oyun başlatılamadı!\n\nHata Detayı: " + error.message + "\n\nLütfen SQL'leri çalıştırdığından emin ol.");
+      } else {
+        await refresh();
+      }
+    };
     if ($("publicToggle")) {
       $("publicToggle").onclick = (e) => {
         if (e.target.tagName !== 'INPUT') e.preventDefault();
