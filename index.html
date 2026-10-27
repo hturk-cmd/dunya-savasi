@@ -120,33 +120,41 @@ let planeMode = false;
 let channel = null;
 let zoomBehavior, mapLayer, mapProjection, mapPath;
 let heartbeatTimer = null;
+let pollTimer = null;
 
 function msg(t){ $("status").textContent = t; }
-function validColor(c){ return /^#[0-9a-fA-F]{6}$/.test(c); }
 function findPlayer(uid){ return gameState?.players?.find(p => p.user_id === uid); }
 function iAmTurn(){ return gameState?.game?.current_turn_user_id === session?.user?.id; }
-function curPhase(){ return gameState?.game?.status || "lobby"; }
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function isOnline(p){
   if (!p?.last_seen_at) return false;
   return (Date.now() - new Date(p.last_seen_at).getTime()) < ONLINE_THRESHOLD_MS;
 }
 function allOnline(){ return gameState?.players?.every(isOnline) ?? false; }
+function curPhase(){
+  if (!gameState) return "lobby";
+  const s = gameState.game?.status;
+  if (s === 'lobby' || s === 'ended') return s;
+  if (gameState.war) return "war";
+  return s || "playing";
+}
 
-function myDiceLeft(){
+function myDiceLeftFor(purpose, warId){
   if (!gameState) return 0;
-  const phase = curPhase();
-  const purpose = phase === "war" ? "war" : "move";
   const uid = session?.user?.id;
-  const warId = phase === "war" ? gameState.war?.id : null;
   const d = gameState.dice.filter(x =>
     x.user_id === uid && x.purpose === purpose && x.used < x.value &&
     (purpose !== "war" || x.war_id === warId)
   );
   return d.reduce((s,x)=>s+(x.value-x.used),0);
 }
+function myDiceLeft(){
+  const phase = curPhase();
+  if (phase === "war") return myDiceLeftFor("war", gameState.war?.id);
+  return myDiceLeftFor("move");
+}
 
-// ---------- HEARTBEAT (online) ----------
+// ---------- HEARTBEAT & POLLING ----------
 function startHeartbeat(gameId){
   stopHeartbeat();
   const beat = () => {
@@ -154,16 +162,25 @@ function startHeartbeat(gameId){
     db.rpc("heartbeat", { p_game_id: gameId }).catch(()=>{});
   };
   beat();
-  heartbeatTimer = setInterval(beat, 20000);
+  heartbeatTimer = setInterval(beat, 15000);
   document.addEventListener("visibilitychange", onVisChange);
+
+  // Online durumları güncellemek için sayfayı periyodik yenile
+  pollTimer = setInterval(() => {
+    if (gameState && (gameState.game.status === 'lobby' || gameState.war)) {
+      refresh();
+    }
+  }, 5000);
 }
 function stopHeartbeat(){
   if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   document.removeEventListener("visibilitychange", onVisChange);
 }
 function onVisChange(){
   if (!document.hidden && gameState?.game?.id) {
     db.rpc("heartbeat", { p_game_id: gameState.game.id }).catch(()=>{});
+    refresh();
   }
 }
 
@@ -188,13 +205,8 @@ async function logout(){
 }
 async function afterLogin(){
   $("userState").textContent = "Giriş yapıldı";
-  const { data, error } = await db.rpc("find_my_active_game");
-  if (error) { msg(error.message); return; }
-  if (data) {
-    gameState = data;
-    syncOwnership();     // ✅ RENK BUG FIX
-    enterGame();
-  } else renderMenu();
+  // Direkt menüye git, oyunu kullanıcı seçsin
+  renderMenu();
 }
 
 // ---------- MENÜ / LOBİ / OYUN ----------
@@ -225,8 +237,12 @@ function renderAuth(){
   });
 }
 
-function renderMenu(){
+async function renderMenu(){
   $("sidePanel").innerHTML = `
+    <section class="panel">
+      <h2>👤 Oyunlarınız</h2>
+      <div id="myGames"><small class="muted">Yükleniyor…</small></div>
+    </section>
     <section class="panel">
       <h2>🌐 Sunucu Listesi</h2>
       <div id="serverList"><small class="muted">Yükleniyor…</small></div>
@@ -242,7 +258,7 @@ function renderMenu(){
       <button id="createGameBtn">Yeni Oyun Kur</button>
     </section>
     <section class="panel">
-      <h2>Oyun'a Katıl</h2>
+      <h2>Kodla Katıl</h2>
       <input id="joinCode" placeholder="6 haneli kod" maxlength="6" inputmode="numeric">
       <input id="joinUsername" placeholder="Oyuncu adın" maxlength="24">
       <label class="muted">Başlangıç Ülkesi</label>
@@ -256,7 +272,7 @@ function renderMenu(){
     </section>`;
 
   fillCountries();
-  renderServerList();
+  loadMenuLists();
 
   $("createGameBtn").onclick = () => withStatus(async () => {
     const name = $("newGameName").value.trim() || "Dünya Odası";
@@ -285,34 +301,61 @@ function renderMenu(){
   $("logoutBtn").onclick = () => withStatus(logout);
 }
 
-async function renderServerList(){
-  const box = $("serverList");
-  if (!box) return;
+async function loadMenuLists(){
+  // Mevcut oyunlar
   try {
-    const { data, error } = await db.rpc("list_public_games");
-    if (error) throw error;
-    const games = data || [];
-    if (games.length === 0) {
-      box.innerHTML = '<small class="muted">Aktif sunucu yok. Yeni oyun kur veya kod ile katıl.</small>';
-      return;
+    const { data: myGames, error: myErr } = await db.rpc("find_my_games");
+    const box = $("myGames");
+    if (myErr) throw myErr;
+    if (!myGames || myGames.length === 0) {
+      box.innerHTML = '<small class="muted">Aktif oyununuz yok.</small>';
+    } else {
+      box.innerHTML = myGames.map(g => `
+        <div class="server-card">
+          <div><strong>${escapeHTML(g.name)}</strong> <small style="margin-left:6px">${g.status === 'lobby' ? '🟢 Lobide' : '🔴 Oynanıyor'}</small></div>
+          <small>${g.player_count}/${g.max_players} • Kod: ${g.code}</small>
+          <button class="join-server-btn success" data-id="${g.id}">Devam Et</button>
+        </div>
+      `).join("");
+      box.querySelectorAll(".join-server-btn").forEach(btn => {
+        btn.onclick = () => withStatus(async () => {
+          await loadGameState(btn.dataset.id); enterGame();
+        });
+      });
     }
-    box.innerHTML = games.map(g => `
-      <div class="server-card">
-        <div><strong>${escapeHTML(g.name)}</strong></div>
-        <small>${g.player_count}/${g.max_players} oyuncu • ${escapeHTML(g.creator_name||'?')}</small>
-        <button class="success join-server-btn" data-code="${g.code}">Katıl</button>
-      </div>
-    `).join("");
-    box.querySelectorAll(".join-server-btn").forEach(btn => {
-      btn.onclick = () => {
-        $("joinCode").value = btn.dataset.code;
-        msg("Kodu doldurduk. Ülke ve renk seçip 'Katıl'a bas.");
-        $("joinCode").scrollIntoView({behavior:"smooth", block:"center"});
-      };
-    });
-  } catch(e) {
-    box.innerHTML = '<small class="muted">Sunucu listesi yüklenemedi.</small>';
-  }
+  } catch(e) { $("myGames").innerHTML = '<small class="muted">Oyunlar yüklenemedi.</small>'; }
+
+  // Public oyunlar
+  try {
+    const { data: pubGames, error: pubErr } = await db.rpc("list_games");
+    const box = $("serverList");
+    if (pubErr) throw pubErr;
+    // Kendi oyunlarını listeden çıkar
+    const myGameIds = new Set((await db.rpc("find_my_games")).data?.map(g => g.id) || []);
+    const filtered = (pubGames || []).filter(g => !myGameIds.has(g.id));
+
+    if (filtered.length === 0) {
+      box.innerHTML = '<small class="muted">Katılabileceğiniz açık sunucu yok.</small>';
+    } else {
+      box.innerHTML = filtered.map(g => {
+        const joinable = g.status === 'lobby' && g.player_count < g.max_players;
+        return `
+          <div class="server-card">
+            <div><strong>${escapeHTML(g.name)}</strong></div>
+            <small>${g.player_count}/${g.max_players} • ${escapeHTML(g.creator_name||'?')} • Kod: ${g.code}</small>
+            ${joinable ? `<button class="success join-pub-btn" data-code="${g.code}">Katıl</button>` : `<small class="muted">Katılamazsın</small>`}
+          </div>
+        `;
+      }).join("");
+      box.querySelectorAll(".join-pub-btn").forEach(btn => {
+        btn.onclick = () => {
+          $("joinCode").value = btn.dataset.code;
+          msg("Kodu doldurduk. Ülke ve renk seçip 'Katıl'a bas.");
+          $("joinCode").scrollIntoView({behavior:"smooth", block:"center"});
+        };
+      });
+    }
+  } catch(e) { $("serverList").innerHTML = '<small class="muted">Sunucular yüklenemedi.</small>'; }
 }
 
 function fillCountries(){
@@ -362,6 +405,7 @@ function subscribeRealtime(){
     .subscribe();
 }
 async function refresh(){
+  if (!gameState) return;
   await loadGameState(gameState.game.id); renderSidePanel(); repaintMap();
 }
 
@@ -370,8 +414,8 @@ function renderSidePanel(){
   if (!gameState) return renderMenu();
   const g = gameState.game;
   if (g.status === "lobby") return renderLobby();
-  if (g.status === "war") return renderWar();
   if (g.status === "ended") return renderEnded();
+  if (gameState.war) return renderWar();
   return renderPlaying();
 }
 
@@ -424,7 +468,10 @@ function renderLobby(){
       ` : `<small>Kurucu bekleniyor…</small>`}
     </section>
     <section class="panel"><h2>Oyuncular</h2><div id="players">${playerListHTML()}</div></section>
-    <button id="logoutBtn" class="secondary">Çıkış</button>`;
+    <section class="panel" style="display:flex; gap:8px">
+      <button id="leaveBtn" class="danger">Sunucudan Ayrıl</button>
+      <button id="logoutBtn" class="secondary">Çıkış</button>
+    </section>`;
 
   document.getElementById("copyCode").onclick = async () => {
     try { await navigator.clipboard.writeText(gameState.game.code); msg("Kod kopyalandı: " + gameState.game.code); }
@@ -449,6 +496,14 @@ function renderLobby(){
       };
     }
   }
+  $("leaveBtn").onclick = () => withStatus(async () => {
+    if (!confirm("Lobiden ayrılmak istediğine emin misin?")) return;
+    const { error } = await db.rpc("leave_game", { p_game_id: g.id });
+    if (error) throw error;
+    gameState = null; stopHeartbeat();
+    if (channel) { db.removeChannel(channel); channel = null; }
+    renderMenu();
+  });
   $("logoutBtn").onclick = () => withStatus(logout);
 }
 
@@ -517,7 +572,6 @@ function renderWar(){
   const iWantEnd = iAmAttacker ? w.attacker_wants_end : w.defender_wants_end;
   const onlineOk = allOnline();
 
-  // === FAZ 1: SIRA ZARI BELİRLEME ===
   if (!w.order_set) {
     const myOrder = (gameState.war_order_dice || []).find(d => d.user_id === session.user.id);
     $("sidePanel").innerHTML = `
@@ -548,7 +602,6 @@ function renderWar(){
     return;
   }
 
-  // === FAZ 2: SALDIRI ===
   const myTurn = w.current_turn_user_id === session.user.id;
   const diceLeft = myDiceLeft();
   const myDice = gameState.dice.find(d =>
@@ -605,11 +658,31 @@ function renderEnded(){
 // ---------- HARİTA ----------
 async function loadMap(){
   $("mapStatus").textContent = "Dünya haritası yükleniyor…";
+  const sources = [
+    "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json",
+    "https://unpkg.com/world-atlas@2/countries-110m.json",
+    "https://cdn.jsdelivr.net/gh/topojson/world-atlas@2.0.2/countries-110m.json"
+  ];
+  let world = null, lastErr = null;
+  for (const url of sources) {
+    try {
+      console.log("Harita kaynağı deneniyor:", url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      world = await res.json();
+      if (!world?.objects?.countries) throw new Error("Format hatası");
+      break;
+    } catch(e) {
+      console.warn("Başarısız:", url, e.message);
+      lastErr = e;
+    }
+  }
+  if (!world) {
+    $("mapStatus").textContent = "❌ Harita yüklenemedi (CDN engeli)";
+    return;
+  }
   try {
-    const response = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
-    const world = await response.json();
     const countries = topojson.feature(world, world.objects.countries).features;
-
     features = countries.map(f => {
         f.properties = f.properties || {};
         f.properties.region_id = String(f.id);
@@ -621,7 +694,9 @@ async function loadMap(){
     fillCountries();
     $("mapStatus").textContent = "Harita çizildi, komşuluklar hesaplanıyor...";
     setTimeout(() => { buildNeighbors(); $("mapStatus").textContent = "Harita hazır"; }, 100);
-  } catch(e) { $("mapStatus").textContent = "Harita yükleme hatası"; throw e; }
+  } catch(e) {
+    $("mapStatus").textContent = "❌ Harita işlenemedi";
+  }
 }
 
 function regionId(f){
@@ -667,7 +742,6 @@ function drawMap(world){
 
   zoomBehavior = d3.zoom().scaleExtent([1, 14]).on("zoom", e => mapLayer.attr("transform", e.transform));
   svg.call(zoomBehavior);
-
   repaintSiegeLabels();
 }
 
@@ -785,6 +859,11 @@ async function withStatus(fn){
 }
 
 async function start(){
+  loadMap().then(() => {
+    updateMapHints();
+    if (gameState) repaintMap();
+  }).catch(e => console.error("Harita yüklenemedi:", e));
+
   const { data } = await db.auth.getSession();
   session = data.session;
   if (session) {
@@ -794,11 +873,6 @@ async function start(){
     $("userState").textContent = "Oturum kapalı";
     renderAuth();
   }
-
-  loadMap().then(() => {
-    updateMapHints();
-    if (gameState) repaintMap();
-  }).catch(e => console.error("Harita yüklenemedi:", e));
 }
 
 start();
