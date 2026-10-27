@@ -2,26 +2,27 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Dünya Hâkimiyeti</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1020;--panel:#151d30;--line:#2b3851;--text:#edf3ff;
 --muted:#9baac2;--accent:#60a5fa;--red:#ef4444;--green:#22c55e;--gold:#f59e0b}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
-header{padding:14px 18px;border-bottom:1px solid var(--line);background:#10182a;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
-h1{margin:0;font-size:20px}
-h2{font-size:15px;margin:0 0 12px}
+header{padding:10px 14px;border-bottom:1px solid var(--line);background:#10182a;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+h1{margin:0;font-size:18px}
+h2{font-size:15px;margin:0 0 10px}
 small,.muted{color:var(--muted)}
-main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;padding:14px}
+main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px;padding:14px;max-width:1600px;margin:0 auto}
 @media(max-width:900px){
   main{grid-template-columns:1fr;padding:8px;gap:8px}
-  header{padding:10px 12px}h1{font-size:16px}
-  #mapbox{height:50vh;min-height:300px}
+  #mapbox{height:50vh;min-height:280px}
+  .panel{padding:10px;margin-bottom:8px}
+  header{padding:8px 10px}h1{font-size:16px}
 }
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;min-width:0}
-input,select,button{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:#0d1526;color:var(--text);margin:5px 0;font:inherit}
-button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:650}
+input,select,button{width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:#0d1526;color:var(--text);margin:6px 0;font:inherit}
+button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:650;transition:filter 0.2s}
 button:hover{filter:brightness(1.15)}
 button.secondary{background:#27344b;border-color:#3b4962}
 button.danger{background:#7f1d1d;border-color:#ef4444}
@@ -39,7 +40,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #players{display:grid;gap:6px}
 .player{display:flex;gap:10px;align-items:center;padding:8px;background:#0d1526;border-radius:8px}
 .player.turn{border:1px solid var(--gold);background:#1a2236}
-.player.defeated{opacity:.4;text-decoration:line-through}
 .swatch{width:16px;height:16px;border-radius:4px;flex:0 0 16px;border:1px solid rgba(255,255,255,.3)}
 #dice{font-size:34px;font-weight:800;text-align:center;margin:6px 0}
 .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
@@ -130,13 +130,15 @@ async function signup(email, pw){
   const { data, error } = await db.auth.signUp({ email, password: pw });
   if (error) throw error;
   if (data.session) { session = data.session; afterLogin(); }
-  else msg("Hesap oluşturuldu. E-postanı doğrula.");
+  else msg("Hesap oluşturuldu. Lütfen e-postanızı onaylayın.");
 }
+
 async function login(email, pw){
   const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
   if (error) throw error;
   session = data.session; afterLogin();
 }
+
 async function logout(){
   await db.auth.signOut();
   session = null; gameState = null;
@@ -157,15 +159,30 @@ function renderAuth(){
   $("sidePanel").innerHTML = `
     <section class="panel">
       <h2>Hesap</h2>
-      <input id="email" type="email" placeholder="E-posta">
-      <input id="password" type="password" placeholder="Şifre">
+      <input id="email" type="email" placeholder="E-posta" autocomplete="email">
+      <input id="password" type="password" placeholder="Şifre" autocomplete="current-password">
       <div class="row">
         <button id="signupBtn">Kayıt ol</button>
         <button id="loginBtn" class="secondary">Giriş yap</button>
       </div>
+      <div id="authStatus" style="color:var(--red); font-size:13px; margin-top:10px; font-weight:bold;"></div>
     </section>`;
-  $("signupBtn").onclick = () => withStatus(()=>signup($("email").value.trim(), $("password").value));
-  $("loginBtn").onclick = () => withStatus(()=>login($("email").value.trim(), $("password").value));
+    
+  $("signupBtn").onclick = () => withStatus(async () => {
+    const email = $("email").value.trim();
+    const pw = $("password").value;
+    if(!email || !pw) throw new Error("E-posta ve şifre gerekli");
+    $("authStatus").textContent = "İşleniyor...";
+    await signup(email, pw);
+  });
+
+  $("loginBtn").onclick = () => withStatus(async () => {
+    const email = $("email").value.trim();
+    const pw = $("password").value;
+    if(!email || !pw) throw new Error("E-posta ve şifre gerekli");
+    $("authStatus").textContent = "Giriş yapılıyor...";
+    await login(email, pw);
+  });
 }
 
 function renderMenu(){
@@ -174,14 +191,18 @@ function renderMenu(){
       <h2>Oyun Kur</h2>
       <input id="newGameName" placeholder="Oyun adı">
       <input id="newGameMax" type="number" min="2" max="8" value="8" placeholder="Maks oyuncu">
+      <label class="muted">Başlangıç Ülkesi</label>
+      <select id="createCountry"><option value="">Harita yükleniyor…</option></select>
+      <label class="muted">Renk</label>
+      <input id="createColor" type="color" value="#3b82f6">
       <button id="createGameBtn">Yeni Oyun Kur</button>
     </section>
     <section class="panel">
       <h2>Oyun'a Katıl</h2>
       <input id="joinCode" placeholder="6 haneli kod" maxlength="6" inputmode="numeric">
       <input id="joinUsername" placeholder="Oyuncu adın" maxlength="24">
-      <label class="muted">Başlangıç Ülkesi (Haritadan da seçebilirsin)</label>
-      <select id="joinCountry"><option value="">Yükleniyor…</option></select>
+      <label class="muted">Başlangıç Ülkesi</label>
+      <select id="joinCountry"><option value="">Harita yükleniyor…</option></select>
       <label class="muted">Renk</label>
       <input id="joinColor" type="color" value="#22c55e">
       <button id="joinGameBtn" class="success">Katıl</button>
@@ -189,14 +210,21 @@ function renderMenu(){
     <section class="panel">
       <button id="logoutBtn" class="secondary">Çıkış yap</button>
     </section>`;
+  
   fillCountries();
+
   $("createGameBtn").onclick = () => withStatus(async () => {
     const name = $("newGameName").value.trim() || "Dünya Odası";
     const max = Math.max(2, Math.min(8, +$("newGameMax").value || 8));
-    const { data, error } = await db.rpc("create_game", { p_name: name, p_max_players: max });
+    const country = $("createCountry").value;
+    const color = $("createColor").value;
+    if (!country) throw new Error("Lütfen bir başlangıç ülkesi seçin.");
+    
+    const { data, error } = await db.rpc("create_game", { p_name: name, p_max_players: max, p_country: country, p_color: color });
     if (error) throw error;
     await loadGameState(data.id); enterGame();
   });
+
   $("joinGameBtn").onclick = () => withStatus(async () => {
     const code = $("joinCode").value.trim();
     const uname = $("joinUsername").value.trim();
@@ -204,7 +232,8 @@ function renderMenu(){
     const color = $("joinColor").value;
     if (code.length !== 6) throw new Error("6 haneli kod gir.");
     if (uname.length < 2) throw new Error("Oyuncu adı çok kısa.");
-    if (!country) throw new Error("Ülke seç.");
+    if (!country) throw new Error("Lütfen bir ülke seçin.");
+    
     const { data, error } = await db.rpc("join_game_by_code", { p_code: code, p_country: country, p_color: color });
     if (error) throw error;
     await db.from("profiles").upsert({ id: session.user.id, username: uname });
@@ -213,19 +242,23 @@ function renderMenu(){
   $("logoutBtn").onclick = () => withStatus(logout);
 }
 
-async function fillCountries(){
-  const sel = $("joinCountry");
-  if (!sel) return;
-  try {
-    const { data, error } = await db.from("countries").select("code,name").order("name");
-    if (error) throw error;
+function fillCountries(){
+  const sels = [$("joinCountry"), $("createCountry")];
+  sels.forEach(sel => {
+    if (!sel) return;
     sel.replaceChildren();
-    for (const c of data) {
+    if (features.length === 0) {
+      sel.innerHTML = '<option value="">Harita yükleniyor...</option>';
+      return;
+    }
+    const sorted = [...features].filter(f => f.properties.region_name).sort((a,b) => a.properties.region_name.localeCompare(b.properties.region_name));
+    for (const f of sorted) {
       const o = document.createElement("option");
-      o.value = c.code; o.textContent = `${c.name} (${c.code})`;
+      o.value = f.properties.region_id; 
+      o.textContent = `${f.properties.region_name} (${f.properties.region_id})`;
       sel.append(o);
     }
-  } catch(e) { sel.innerHTML = '<option value="">Hata</option>'; }
+  });
 }
 
 async function loadGameState(gameId){
@@ -451,6 +484,7 @@ async function loadMap(){
     });
     $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " ülke";
     drawMap(world);
+    fillCountries();
     $("mapStatus").textContent = "Harita çizildi, komşuluklar hesaplanıyor...";
     setTimeout(() => { buildNeighbors(); $("mapStatus").textContent = "Harita hazır"; }, 100);
   } catch(e) { $("mapStatus").textContent = "Harita yükleme hatası"; throw e; }
@@ -556,7 +590,7 @@ async function onRegionClick(f){
     return;
   }
 
-  if (phase !== "playing" || !iAmTurn() || myDiceLeft() <= 0) { msg("Hamle yapılamaz."); return; }
+  if (phase !== "playing" || !iAmTurn() || myDiceLeft() <= 0) { msg("Hamle yapılamaz. Zar atmalı veya sıranı beklemelisin."); return; }
   if (ownership.has(rid)) { msg("Bölge zaten alınmış."); return; }
 
   if (!planeMode) {
@@ -582,17 +616,36 @@ $("zoomIn").onclick = () => zoomBehavior && d3.select("#map").transition().call(
 $("zoomOut").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.scaleBy, 1/1.4);
 $("resetZoom").onclick = () => zoomBehavior && d3.select("#map").transition().call(zoomBehavior.transform, d3.zoomIdentity);
 
-async function withStatus(fn){ try { await fn(); } catch(e) { msg(e.message || String(e)); console.error(e); } }
+async function withStatus(fn){
+  try { await fn(); } 
+  catch(e) { 
+    msg(e.message || String(e)); 
+    const authErr = document.getElementById("authStatus");
+    if (authErr) authErr.textContent = e.message || String(e);
+    console.error(e); 
+  }
+}
 
 async function start(){
-  await loadMap();
   const { data } = await db.auth.getSession();
   session = data.session;
-  if (session) { $("userState").textContent = "Giriş yapıldı"; await afterLogin(); }
-  else { $("userState").textContent = "Oturum kapalı"; renderAuth(); }
-  updateMapHints();
+  if (session) { 
+    $("userState").textContent = "Giriş yapıldı"; 
+    await afterLogin(); 
+  } else { 
+    $("userState").textContent = "Oturum kapalı"; 
+    renderAuth(); 
+  }
+
+  loadMap().then(() => {
+    updateMapHints();
+    if (gameState) repaintMap();
+  }).catch(e => {
+    console.error("Harita yüklenemedi:", e);
+  });
 }
-start().catch(e => { $("mapStatus").textContent = "Yükleme başarısız"; msg(e.message); });
+
+start();
 </script>
 </body>
 </html>
