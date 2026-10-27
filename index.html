@@ -111,10 +111,10 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 
 let session = null;
-let gameState = null;      // sunucudan gelen tüm oyun durumu
+let gameState = null;      
 let features = [];
-let neighbors = new Map(); // region_id -> Set<region_id>
-let ownership = new Map(); // region_id -> owner obj
+let neighbors = new Map(); 
+let ownership = new Map(); 
 let planeMode = false;
 let channel = null;
 let zoomBehavior, mapLayer;
@@ -156,7 +156,6 @@ async function logout(){
 
 async function afterLogin(){
   $("userState").textContent = "Giriş yapıldı";
-  // Devam eden oyunu bul
   const { data, error } = await db.rpc("find_my_active_game");
   if (error) { msg(error.message); return; }
   if (data) { gameState = data; enterGame(); }
@@ -222,7 +221,6 @@ function renderMenu(){
       p_code: code, p_country: country, p_color: color
     });
     if (error) throw error;
-    // Profil adını güncelle (varsa)
     await db.from("profiles").upsert({ id: session.user.id, username: uname });
     await loadGameState(data.id);
     enterGame();
@@ -263,8 +261,7 @@ function enterGame(){
   subscribeRealtime();
   renderSidePanel();
   repaintMap();
-  $("subTitle").textContent =
-    `${gameState.game.name} • Kod: ${gameState.game.code}`;
+  $("subTitle").textContent = `${gameState.game.name} • Kod: ${gameState.game.code}`;
 }
 
 function subscribeRealtime(){
@@ -456,7 +453,7 @@ function renderWar(){
       <h2>Savaş Hamlesi</h2>
       <div id="dice">${myDice ? "🎲 "+myDice.value : "—"}</div>
       <div class="muted">${myTurn ? `Kalan füze: ${diceLeft}` : "Sıra sende değil"}</div>
-      <button id="rollWarBtn" ${!myTurn || diceLeft>0 ? 'disabled' : ''}>
+      <button id="rollWarBtn" ${!myTurn || diceLeft>0 ? 'disabled':''}>
         Savaş Zarı At
       </button>
       <small>Zar = füze sayısı. Düşman şehrine tıklayarak füze at.</small>
@@ -510,14 +507,28 @@ function renderEnded(){
 // ---------- HARİTA ----------
 async function loadMap(){
   $("mapStatus").textContent = "regions.geojson okunuyor…";
-  const r = await fetch("./regions.geojson");
-  if (!r.ok) throw new Error("regions.geojson yüklenemedi (index.html ile aynı klasörde olmalı).");
-  const data = await r.json();
-  if (data.type !== "FeatureCollection") throw new Error("GeoJSON geçersiz.");
-  features = data.features.filter(f => f.geometry);
-  $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " bölge";
-  buildNeighbors();
-  drawMap(data);
+  try {
+    const r = await fetch("./regions.geojson");
+    if (!r.ok) throw new Error("regions.geojson yüklenemedi.");
+    const data = await r.json();
+    
+    features = data.features.filter(f => f.geometry);
+    $("regionCount").textContent = features.length.toLocaleString("tr-TR") + " bölge";
+
+    // 1. ADIM: Haritayı hemen çiz, donmayı önle.
+    drawMap(data);
+    $("mapStatus").textContent = "Harita çizildi, sınır komşuları hesaplanıyor...";
+
+    // 2. ADIM: Komşulukları arka planda (gecikmeli) hesapla, böylece UI donmaz.
+    setTimeout(() => {
+      buildNeighbors();
+      $("mapStatus").textContent = "Harita hazır (Tüm sistemler aktif)";
+    }, 100);
+
+  } catch(e) {
+    $("mapStatus").textContent = "Harita yükleme hatası";
+    throw e;
+  }
 }
 
 function regionId(f){
@@ -525,48 +536,52 @@ function regionId(f){
   return String(p.region_id || p.shapeID || p.shapeISO || "");
 }
 
-// Basit komşuluk: 3 ondalığa (≈100m) yuvarlanmış köşe eşleşmesi
+// Performansı artırılmış hızlı komşuluk hesaplayıcı
 function buildNeighbors(){
   neighbors.clear();
   const vertexMap = new Map();
-  const roundKey = (x,y) => x.toFixed(3) + "," + y.toFixed(3);
-  const collect = (geom) => {
-    const pts = [];
-    const walk = c => {
-      if (typeof c[0] === "number") pts.push(c);
-      else c.forEach(walk);
-    };
-    walk(geom.coordinates);
-    return pts;
+
+  const addCoords = (coords, rid) => {
+    if (typeof coords[0] === 'number') {
+      const key = coords[0].toFixed(2) + "," + coords[1].toFixed(2);
+      let set = vertexMap.get(key);
+      if (!set) { set = new Set(); vertexMap.set(key, set); }
+      set.add(rid);
+    } else {
+      for (let i = 0; i < coords.length; i++) addCoords(coords[i], rid);
+    }
   };
-  // vertex → region ids
+
+  // 1. Tüm köşe noktalarını topla
   for (const f of features) {
     const rid = regionId(f);
     if (!rid) continue;
-    for (const [x,y] of collect(f.geometry)) {
-      const k = roundKey(x,y);
-      if (!vertexMap.has(k)) vertexMap.set(k, new Set());
-      vertexMap.get(k).add(rid);
-    }
+    addCoords(f.geometry.coordinates, rid);
   }
-  // neighbors
-  for (const f of features) {
-    const rid = regionId(f);
-    if (!rid) continue;
-    const set = new Set();
-    for (const [x,y] of collect(f.geometry)) {
-      const k = roundKey(x,y);
-      vertexMap.get(k).forEach(other => { if (other !== rid) set.add(other); });
+
+  // 2. Aynı köşeyi paylaşanları komşu ilan et
+  for (const rids of vertexMap.values()) {
+    if (rids.size > 1) {
+      const arr = Array.from(rids);
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          const a = arr[i], b = arr[j];
+          if (!neighbors.has(a)) neighbors.set(a, new Set());
+          if (!neighbors.has(b)) neighbors.set(b, new Set());
+          neighbors.get(a).add(b);
+          neighbors.get(b).add(a);
+        }
+      }
     }
-    neighbors.set(rid, set);
   }
 }
 
 function drawMap(data){
   const svg = d3.select("#map");
   svg.selectAll("*").remove();
-  const projection = d3.geoNaturalEarth1()
-    .fitExtent([[8, 8], [952, 552]], data);
+  // Antarktika çok büyük olduğu için haritayı düzgün ortalayamıyor, 
+  // bu yüzden "fitExtent" yerine doğrudan "fitSize" kullanıyoruz.
+  const projection = d3.geoNaturalEarth1().fitSize([960, 560], data);
   const path = d3.geoPath(projection);
 
   mapLayer = svg.append("g");
@@ -618,7 +633,6 @@ async function onRegionClick(f){
   if (!rid) { msg("Bu bölgenin kimliği yok."); return; }
 
   if (phase === "war") {
-    // füze at
     const w = gameState.war;
     if (!w) return;
     if (w.current_turn_user_id !== session.user.id) { msg("Sıra sende değil."); return; }
@@ -648,7 +662,6 @@ async function onRegionClick(f){
   if (myDiceLeft() <= 0) { msg("Önce zar at."); return; }
   if (ownership.has(rid)) { msg("Bu bölge zaten alınmış."); return; }
 
-  // komşu kontrolü (plane değilse)
   if (!planeMode) {
     const iHaveAny = [...ownership.values()].some(o => o.owner_user_id === session.user.id);
     if (iHaveAny) {
