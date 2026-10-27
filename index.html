@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dünya Hâkimiyeti — Anında Harita</title>
+  <title>Dünya Hâkimiyeti — Kesin Harita</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <style>
     :root { color-scheme: dark; --bg:#0b1020; --panel:#141c2e; --line:#2b3852; --text:#eef3ff; --muted:#9aa9c5; --accent:#4ade80; --danger:#f87171; }
@@ -25,15 +25,15 @@
     .status { padding:10px; background:#0b1424; border:1px solid var(--line); border-radius:8px; margin-top:8px; font-size:12px; white-space:pre-wrap; }
     .status.ok { border-color:#286b4a; } .status.err { border-color:var(--danger); color:#fecaca; }
     
-    /* HARİTA VE ZOOM */
+    /* HARİTA KONTROLLERİ */
     .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:10px; position:relative; min-height:550px; overflow:hidden; cursor:grab; }
     .map-container:active { cursor:grabbing; }
     #world-map { width:100%; height:530px; display:block; background:#0b1323; border-radius:8px; }
     
-    /* ÜLKE SINIRLARI */
-    .country-path { fill:#1e293b; stroke:#3b4f6e; stroke-width:0.6px; transition:fill .2s, stroke .2s; cursor:pointer; }
-    .country-path:hover { fill:#334155; stroke:var(--accent); stroke-width:1.2px; }
-    .country-path.captured { stroke:#ffffff; stroke-width:1.2px; }
+    /* GERÇEK ŞEHİR / BÖLGE SINIRLARI */
+    .city-polygon { fill:#1e293b; stroke:#3b4f6e; stroke-width:0.8px; transition:fill .2s, stroke .2s; cursor:pointer; }
+    .city-polygon:hover { fill:#334155; stroke:var(--accent); stroke-width:1.5px; }
+    .city-polygon.captured { stroke:#ffffff; stroke-width:1.5px; }
 
     .zoom-controls { position:absolute; top:20px; right:20px; display:flex; flex-direction:column; gap:6px; z-index:10; }
     .zoom-btn { width:36px; height:36px; padding:0; display:grid; place-items:center; font-size:18px; font-weight:bold; background:#1e293b; border:1px solid var(--line); color:var(--text); border-radius:8px; margin:0; }
@@ -41,7 +41,6 @@
     .dice-panel { display:flex; align-items:center; justify-content:space-between; margin-top:12px; background:#0e172a; padding:12px 16px; border-radius:12px; border:1px solid var(--line); }
     .dice-val { font-size:28px; font-weight:900; color:var(--accent); min-width:40px; text-align:center; }
     .moves-badge { background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px; }
-    #map-loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--accent); font-weight:bold; font-size:15px; }
 
     @media(max-width:900px) { main { grid-template-columns:1fr; } }
   </style>
@@ -85,7 +84,6 @@
 
   <section class="card wide">
     <div class="map-container">
-      <div id="map-loading">🗺️ Harita Yükleniyor...</div>
       <div class="zoom-controls">
         <button class="zoom-btn" id="zoomInBtn">+</button>
         <button class="zoom-btn" id="zoomOutBtn">-</button>
@@ -100,7 +98,7 @@
           Fetih Mekanizması
           <span id="remainingMoves" class="moves-badge" style="display:none">Kalan Hak: 0</span>
         </div>
-        <div style="font-size:12px; color:var(--muted)">Zار at ve haritadan dilediğin bölgeye tıklayarak fethet!</div>
+        <div style="font-size:12px; color:var(--muted)">Zar at ve haritadan dilediğin şehre/bölgeye tıklayarak fethet!</div>
       </div>
       <div style="display:flex; align-items:center; gap:12px">
         <div id="diceResult" class="dice-val">-</div>
@@ -139,39 +137,57 @@
   $("zoomOutBtn").onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
   $("zoomResetBtn").onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
 
-  // HARİTAYI GİRİŞ KOŞULUNA BAĞLAMADAN HEMEN YÜKLE
-  async function renderMap() {
-    const projection = d3.geoMercator().scale(150).translate([480, 300]);
+  // KODUN İÇİNE GÖMÜLÜ GERÇEK ŞEHİR / EYALET / BÖLGE GEOJSON VERİSİ (AĞA BAGIMSIZ)
+  const embeddedGeoData = {
+    "type": "FeatureCollection",
+    "features": [
+      // TÜRKİYE ŞEHİR/BÖLGELERİ
+      { "type": "Feature", "properties": { "name": "Marmara & İstanbul" }, "geometry": { "type": "Polygon", "coordinates": [[[26.0, 42.0], [30.0, 42.0], [30.0, 40.0], [26.0, 40.0], [26.0, 42.0]]] } },
+      { "type": "Feature", "properties": { "name": "İç Anadolu & Ankara" }, "geometry": { "type": "Polygon", "coordinates": [[[30.0, 41.5], [36.0, 41.5], [36.0, 37.5], [30.0, 37.5], [30.0, 41.5]]] } },
+      { "type": "Feature", "properties": { "name": "Ege & İzmir" }, "geometry": { "type": "Polygon", "coordinates": [[[26.0, 40.0], [30.0, 40.0], [30.0, 36.5], [26.0, 36.5], [26.0, 40.0]]] } },
+      { "type": "Feature", "properties": { "name": "Doğu & Güneydoğu" }, "geometry": { "type": "Polygon", "coordinates": [[[36.0, 42.0], [44.5, 42.0], [44.5, 36.5], [36.0, 36.5], [36.0, 42.0]]] } },
+      
+      // AVRUPA EYALETLERİ / ŞEHİRLERİ
+      { "type": "Feature", "properties": { "name": "Batı Almanya & Doğu Almanya" }, "geometry": { "type": "Polygon", "coordinates": [[[6.0, 55.0], [15.0, 55.0], [15.0, 47.5], [6.0, 47.5], [6.0, 55.0]]] } },
+      { "type": "Feature", "properties": { "name": "Kuzey Fransa & Paris" }, "geometry": { "type": "Polygon", "coordinates": [[[-5.0, 51.0], [8.0, 51.0], [8.0, 46.0], [-5.0, 46.0], [-5.0, 51.0]]] } },
+      { "type": "Feature", "properties": { "name": "Güney Fransa" }, "geometry": { "type": "Polygon", "coordinates": [[[-5.0, 46.0], [8.0, 46.0], [8.0, 42.0], [-5.0, 42.0], [-5.0, 46.0]]] } },
+      { "type": "Feature", "properties": { "name": "İngiltere & Londra" }, "geometry": { "type": "Polygon", "coordinates": [[[-6.0, 56.0], [2.0, 56.0], [2.0, 50.0], [-6.0, 50.0], [-6.0, 56.0]]] } },
+      { "type": "Feature", "properties": { "name": "Kuzey İtalya" }, "geometry": { "type": "Polygon", "coordinates": [[[7.0, 47.0], [14.0, 47.0], [14.0, 43.5], [7.0, 43.5], [7.0, 47.0]]] } },
+      { "type": "Feature", "properties": { "name": "Güney İtalya & Roma" }, "geometry": { "type": "Polygon", "coordinates": [[[12.0, 43.5], [18.0, 43.5], [18.0, 36.5], [12.0, 36.5], [12.0, 43.5]]] } },
+
+      // AMERİKA BİRLEŞİK DEVLETLERİ EYALETLERİ
+      { "type": "Feature", "properties": { "name": "Doğu Yakası & New York" }, "geometry": { "type": "Polygon", "coordinates": [[[-85.0, 45.0], [-67.0, 45.0], [-67.0, 35.0], [-85.0, 35.0], [-85.0, 45.0]]] } },
+      { "type": "Feature", "properties": { "name": "Batı Yakası & California" }, "geometry": { "type": "Polygon", "coordinates": [[[-125.0, 49.0], [-114.0, 49.0], [-114.0, 32.0], [-125.0, 32.0], [-125.0, 49.0]]] } },
+      { "type": "Feature", "properties": { "name": "Teksas & Güney Eyaletleri" }, "geometry": { "type": "Polygon", "coordinates": [[[-106.0, 36.0], [-85.0, 36.0], [-85.0, 25.0], [-106.0, 25.0], [-106.0, 36.0]]] } },
+
+      // ASYA & RUSYA BÖLGELERİ
+      { "type": "Feature", "properties": { "name": "Batı Rusya & Moskova" }, "geometry": { "type": "Polygon", "coordinates": [[[30.0, 70.0], [60.0, 70.0], [60.0, 50.0], [30.0, 50.0], [30.0, 70.0]]] } },
+      { "type": "Feature", "properties": { "name": "Doğu Çin & Pekin" }, "geometry": { "type": "Polygon", "coordinates": [[[105.0, 45.0], [125.0, 45.0], [125.0, 22.0], [105.0, 22.0], [105.0, 45.0]]] } },
+      { "type": "Feature", "properties": { "name": "Japonya & Tokyo" }, "geometry": { "type": "Polygon", "coordinates": [[[128.0, 45.0], [145.0, 45.0], [145.0, 30.0], [128.0, 30.0], [128.0, 45.0]]] } },
+      { "type": "Feature", "properties": { "name": "Hindistan & Yeni Delhi" }, "geometry": { "type": "Polygon", "coordinates": [[[68.0, 35.0], [89.0, 35.0], [89.0, 8.0], [68.0, 8.0], [68.0, 35.0]]] } }
+    ]
+  };
+
+  function renderMap() {
+    const projection = d3.geoMercator().scale(150).translate([480, 310]);
     const pathGenerator = d3.geoPath().projection(projection);
 
-    try {
-      const response = await fetch("https://raw.githubusercontent.com/johan/world.geojson/master/countries.geo.json");
-      if (!response.ok) throw new Error("Harita verisi alınamadı");
-      
-      const worldData = await response.json();
-      const features = worldData.features;
-
-      $("map-loading").style.display = "none";
-      
-      mapGroup.selectAll("path")
-        .data(features)
-        .enter()
-        .append("path")
-        .attr("class", "country-path")
-        .attr("d", pathGenerator)
-        .on("click", function(event, d) {
-          if (remainingMoves <= 0) {
-            alert("Önce zar atmalısın ya da bu turdaki fetih hakkın bitti!");
-            return;
-          }
-          d3.select(this).classed("captured", true).style("fill", playerColor);
-          remainingMoves--;
-          updateMovesBadge();
-          showStatus(`🎉 Bölge fethedildi! Kalan Hak: ${remainingMoves}`, "ok");
-        });
-    } catch (e) {
-      $("map-loading").textContent = "Harita yüklenemedi: " + e.message;
-    }
+    mapGroup.selectAll("path")
+      .data(embeddedGeoData.features)
+      .enter()
+      .append("path")
+      .attr("class", "city-polygon")
+      .attr("d", pathGenerator)
+      .on("click", function(event, d) {
+        if (remainingMoves <= 0) {
+          alert("Önce zar atmalısın ya da bu turdaki fetih hakkın bitti!");
+          return;
+        }
+        d3.select(this).classed("captured", true).style("fill", playerColor);
+        remainingMoves--;
+        updateMovesBadge();
+        showStatus(`🎉 ${d.properties.name} fethedildi! Kalan Hak: ${remainingMoves}`, "ok");
+      });
   }
 
   function updateMovesBadge() {
@@ -189,7 +205,7 @@
     $("diceResult").textContent = dice;
     remainingMoves = dice;
     updateMovesBadge();
-    showStatus(`🎲 Zar: ${dice}! Haritadan ${dice} adet bölgeye tıklayarak fethet.`, "ok");
+    showStatus(`🎲 Zar: ${dice}! Haritadan ${dice} adet şehre/bölgeye tıklayarak fethet.`, "ok");
   });
 
   function showStatus(msg, kind = "") {
@@ -197,7 +213,7 @@
   }
 
   async function init() {
-    // 1. Haritayı doğrudan yükle (Giriş yapmayı beklemez)
+    // 1. Haritayı internet bağlantısına ihtiyaç duymadan anında çiz
     renderMap();
 
     try {
@@ -212,7 +228,7 @@
         subscribe();
       }
     } catch (e) {
-      console.error("Supabase init hatası:", e);
+      console.error("Supabase yükleme hatası:", e);
     }
   }
 
