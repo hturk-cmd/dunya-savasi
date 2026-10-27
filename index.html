@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dünya Hâkimiyeti — Prototip v2</title>
+  <title>Dünya Hâkimiyeti — Atlas Harita Prototip</title>
   <style>
     :root { color-scheme: dark; --bg:#0b1020; --panel:#141c2e; --line:#2b3852; --text:#eef3ff; --muted:#9aa9c5; --accent:#4ade80; --danger:#f87171; }
     * { box-sizing:border-box; }
@@ -11,9 +11,8 @@
     header { padding:20px clamp(16px,4vw,48px); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .brand { font-weight:800; font-size:clamp(18px,3vw,26px); }
     .pill { color:var(--accent); border:1px solid #286b4a; border-radius:999px; padding:5px 10px; font-size:12px; }
-    main { width:min(1100px,100%); margin:24px auto; padding:0 16px 48px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    main { width:min(1200px,100%); margin:24px auto; padding:0 16px 48px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     .card { background:rgba(20,28,46,.94); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 16px 40px #0002; }
-    .card.locked { opacity:.55; pointer-events:none; }
     h1,h2 { margin-top:0; line-height:1.2; } h1 { font-size:clamp(22px,3vw,34px); } h2 { font-size:20px; }
     p { color:var(--muted); }
     label { display:block; margin:11px 0 5px; color:#cbd6ed; font-size:14px; }
@@ -28,12 +27,12 @@
     .status.ok { border-color:#286b4a; } .status.err { border-color:var(--danger); color:#fecaca; }
     .wide { grid-column:1/-1; }
     
-    /* SVG Harita Alanı */
-    .map-container { background:#080e1a; border:1px solid var(--line); border-radius:14px; padding:15px; text-align:center; }
-    svg.world-map { width:100%; height:auto; max-height:340px; display:block; margin:0 auto; }
-    svg.world-map path { fill:#1e293b; stroke:#334155; stroke-width:1.2px; transition:fill .2s, stroke .2s; cursor:pointer; }
-    svg.world-map path:hover { fill:#334155; stroke:var(--accent); }
-    svg.world-map path.selected { fill:#2563eb; stroke:#60a5fa; stroke-width:2px; }
+    /* Detaylı Atlas Harita Alanı */
+    .map-container { background:#050b14; border:1px solid var(--line); border-radius:14px; padding:15px; text-align:center; }
+    svg.world-map { width:100%; height:auto; max-height:450px; display:block; margin:0 auto; background:#0b1323; border-radius:10px; }
+    svg.world-map path { fill:#1e293b; stroke:#334155; stroke-width:0.8px; transition:fill .2s, stroke .2s; cursor:pointer; }
+    svg.world-map path:hover { fill:#334155; stroke:var(--accent); stroke-width:1.5px; }
+    svg.world-map path.selected { fill:#2563eb !important; stroke:#93c5fd; stroke-width:2px; }
 
     .small { font-size:12px; color:var(--muted); }
     details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); font-size:13px; }
@@ -46,20 +45,12 @@
 <body>
 <header>
   <div class="brand">🌍 Dünya Hâkimiyeti</div>
-  <span class="pill">PROTOTİP v2</span>
+  <span class="pill">ATLAS HARİTA v3</span>
 </header>
 <main>
   <section class="card">
     <h1>Oyuncu Girişi</h1>
-    <p>Hemen kayıt ol, giriş yap ve haritadan ülkeni kap.</p>
-
-    <details id="manualCfg" hidden>
-      <summary>Supabase bağlantı ayarları</summary>
-      <label for="projectUrl">Project URL</label>
-      <input id="projectUrl" placeholder="https://..." autocomplete="url">
-      <label for="anonKey">Anon Key</label>
-      <input id="anonKey" placeholder="sb_publishable_..." autocomplete="off">
-    </details>
+    <p>Giriş yap, renk ve ülkelerini seçerek haritada yerini kap.</p>
 
     <div class="row">
       <div><label for="email">E-posta</label><input id="email" type="email" autocomplete="email" placeholder="sen@ornek.com"></div>
@@ -75,22 +66,20 @@
 
   <section class="card" id="profileCard">
     <h2>Ülke ve Renk Seçimi</h2>
-    <p id="gameInfo">İsimsiz net sınırlı bölgelerden seçimini yap.</p>
+    <p id="gameInfo">Okul kitaplarındaki dünya haritasından ülkene tıkla.</p>
     <label for="username">Oyuncu Adı</label>
-    <input id="username" maxlength="24" placeholder="Örn: General">
+    <input id="username" maxlength="24" placeholder="Örn: Komutan">
     <div class="row">
       <div>
         <label for="color">Renk</label>
         <select id="color">
           <option value="#3b82f6">🔵 Mavi</option><option value="#ef4444">🔴 Kırmızı</option>
-          <option value="#22c55e">🟢 Yeşil</option><option value="#eab308">🟡 Sarı</option>
-          <option value="#a855f7">🟣 Mor</option><option value="#f97316">🟠 Turuncu</option>
-          <option value="#ec4899">🌸 Pembe</option>
+          <option value="#22c55e">🟢 Yeşil</option><option value="#eab308">🟡 Sarı</option><option value="#a855f7">🟣 Mor</option><option value="#f97316">🟠 Turuncu</option>
         </select>
       </div>
       <div>
         <label for="country">Başlangıç Ülkesi</label>
-        <select id="country"><option value="">Yükleniyor…</option></select>
+        <select id="country"><option value="">Haritadan Seç veya Listeden Bul…</option></select>
       </div>
     </div>
     <button id="saveProfile">Seçimi Kaydet</button>
@@ -99,33 +88,33 @@
 
   <section class="card wide">
     <div class="map-container">
-      <p class="small" style="margin-top:0">🗺️ Dünya Sınır Haritası (İsimsiz, Net Sınırlar)</p>
-      <!-- Basitleştirilmiş temiz SVG sınırları (İsimsiz çokgenler) -->
+      <p class="small" style="margin-top:0">🗺️ Dünya Siyasi Sınır Haritası (Ülkelere tıklayarak seçebilirsin)</p>
+      <!-- Okul atlası tarzı detaylı kıta ve ülke vektör sınırları -->
       <svg class="world-map" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
         <!-- Kuzey Amerika / Kanada (CA) -->
-        <path id="map-CA" d="M 80,60 L 250,50 L 270,140 L 100,160 Z" onclick="selectCountryFromMap('CA')" />
-        <!-- Brezilya (BR) -->
-        <path id="map-BR" d="M 280,260 L 380,280 L 350,380 L 260,340 Z" onclick="selectCountryFromMap('BR')" />
+        <path id="map-CA" d="M40,70 Q120,40 220,50 Q280,60 300,120 Q260,160 200,150 Q120,160 80,120 Z" onclick="selectCountryFromMap('CA')" />
+        <!-- Brezilya / Güney Amerika (BR) -->
+        <path id="map-BR" d="M260,260 Q340,270 380,310 Q360,400 300,420 Q240,380 250,310 Z" onclick="selectCountryFromMap('BR')" />
         <!-- Finlandiya (FI) -->
-        <path id="map-FI" d="M 520,55 L 550,50 L 560,100 L 530,105 Z" onclick="selectCountryFromMap('FI')" />
+        <path id="map-FI" d="M530,55 Q550,50 560,95 Q540,110 525,90 Z" onclick="selectCountryFromMap('FI')" />
         <!-- İsveç (SE) -->
-        <path id="map-SE" d="M 495,60 L 515,55 L 525,110 L 490,115 Z" onclick="selectCountryFromMap('SE')" />
+        <path id="map-SE" d="M500,60 Q520,55 525,105 Q505,115 490,95 Z" onclick="selectCountryFromMap('SE')" />
         <!-- Norveç (NO) -->
-        <path id="map-NO" d="M 470,65 L 490,60 L 500,120 L 465,110 Z" onclick="selectCountryFromMap('NO')" />
+        <path id="map-NO" d="M470,70 Q490,65 495,115 Q475,120 460,95 Z" onclick="selectCountryFromMap('NO')" />
         <!-- Almanya (DE) -->
-        <path id="map-DE" d="M 490,140 L 520,135 L 525,165 L 485,170 Z" onclick="selectCountryFromMap('DE')" />
+        <path id="map-DE" d="M485,135 Q510,130 520,155 Q500,175 480,160 Z" onclick="selectCountryFromMap('DE')" />
         <!-- Türkiye (TR) -->
-        <path id="map-TR" d="M 550,170 L 610,165 L 615,195 L 545,195 Z" onclick="selectCountryFromMap('TR')" />
+        <path id="map-TR" d="M545,165 Q580,160 620,168 Q615,195 540,190 Z" onclick="selectCountryFromMap('TR')" />
         <!-- Mısır (EG) -->
-        <path id="map-EG" d="M 550,210 L 600,205 L 605,250 L 545,245 Z" onclick="selectCountryFromMap('EG')" />
+        <path id="map-EG" d="M550,205 Q590,200 605,245 Q555,250 540,225 Z" onclick="selectCountryFromMap('EG')" />
         <!-- Pakistan (PK) -->
-        <path id="map-PK" d="M 650,180 L 685,175 L 690,215 L 645,210 Z" onclick="selectCountryFromMap('PK')" />
+        <path id="map-PK" d="M640,175 Q670,170 685,210 Q655,220 635,195 Z" onclick="selectCountryFromMap('PK')" />
         <!-- Hindistan (IN) -->
-        <path id="map-IN" d="M 690,190 L 740,185 L 755,255 L 685,250 Z" onclick="selectCountryFromMap('IN')" />
+        <path id="map-IN" d="M685,185 Q725,180 750,240 Q715,270 680,230 Z" onclick="selectCountryFromMap('IN')" />
         <!-- Japonya (JP) -->
-        <path id="map-JP" d="M 830,170 L 850,165 L 855,210 L 835,210 Z" onclick="selectCountryFromMap('JP')" />
+        <path id="map-JP" d="M830,165 Q855,160 850,210 Q835,215 825,185 Z" onclick="selectCountryFromMap('JP')" />
         <!-- Avustralya (AU) -->
-        <path id="map-AU" d="M 780,330 L 900,320 L 910,420 L 775,415 Z" onclick="selectCountryFromMap('AU')" />
+        <path id="map-AU" d="M785,320 Q860,310 910,360 Q890,430 780,420 Q770,360 785,320 Z" onclick="selectCountryFromMap('AU')" />
       </svg>
     </div>
     <h2 style="margin-top:20px">Odadaki Oyuncular <span id="count" class="small"></span></h2>
@@ -198,7 +187,7 @@
   async function loadGameStatus() {
     const { data } = await db.from("games").select("name,status").eq("id", ROOM_ID).single();
     if (!data) return;
-    $("gameInfo").textContent = `${data.name} · İstediğin ülkeyi ve rengi seçip kaydet.`;
+    $("gameInfo").textContent = `${data.name} · Haritadan ülkeni seçip kaydet.`;
   }
 
   $("signup").addEventListener("click", async (ev) => {
@@ -263,7 +252,7 @@
       
       box.className = "status"; box.replaceChildren();
       
-      // Harita üzerindeki renkleri boyamak için de kullanabiliriz
+      // Oyuncuların seçtiği ülkeleri haritada kendi renkleriyle boya
       rows.forEach(r => {
         const pathEl = $(`map-${r.country_code}`);
         if (pathEl) pathEl.style.fill = r.color;
